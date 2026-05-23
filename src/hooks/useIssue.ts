@@ -18,28 +18,41 @@ const [issue, setIssue] = useState<BrewIssue | null>(null);
 const [loading, setLoading] = useState(true);
 const [error, setError] = useState<string | null>(null);
 
-useEffect(() => {
+const nonRealtimeState = useMemo<UseIssueState | null>(() => {
 if (!issueId) {
-setIssue(null);
-setLoading(false);
-setError('Missing issue id.');
-return;
+const result: UseIssueState = {
+	issue: null,
+	loading: false,
+	error: 'Missing issue id.',
+	isUsingMock: false,
+};
+return result;
 }
 
 if (!isFirebaseConfigured || !db) {
-setIssue({ ...MOCK_ISSUE, id: issueId, date: issueId });
-setLoading(false);
-setError(null);
-return;
+const result: UseIssueState = {
+	issue: { ...MOCK_ISSUE, id: issueId, date: issueId },
+	loading: false,
+	error: null,
+	isUsingMock: true,
+};
+return result;
 }
 
-setLoading(true);
-setError(null);
+const result = null;
+return result;
+}, [issueId]);
+
+useEffect(() => {
+if (nonRealtimeState || !db) {
+return;
+}
 
 const issueRef = doc(db, 'issues', issueId);
 const unsubscribe = onSnapshot(
 issueRef,
 (snapshot) => {
+setError(null);
 if (!snapshot.exists()) {
 setIssue(null);
 setLoading(false);
@@ -61,12 +74,16 @@ setLoading(false);
 return () => {
 unsubscribe();
 };
-}, [issueId]);
+}, [issueId, nonRealtimeState]);
 
 const isUsingMock = useMemo(() => {
 const result = !isFirebaseConfigured;
 return result;
 }, []);
+
+if (nonRealtimeState) {
+return nonRealtimeState;
+}
 
 return { issue, loading, error, isUsingMock };
 }

@@ -7,7 +7,7 @@ import { TTSEngine } from '@components/TTSEngine';
 import { useIssue } from '@hooks/useIssue';
 import { getTodayIssueId } from '@lib/issues/issue.utils';
 import { APP_DESCRIPTION, APP_TITLE } from '@lib/app';
-import { useSlideshowStore } from '@store';
+import { useSlideshowStore } from '@store/slideshowStore';
 
 export function Home() {
 const issueId = getTodayIssueId();

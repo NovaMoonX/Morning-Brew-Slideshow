@@ -59,10 +59,6 @@ stop();
 };
 }, [stop]);
 
-useEffect(() => {
-stop();
-}, [slide?.id, stop]);
-
 const speakWithKokoro = useCallback(() => {
 if (!slide?.audio_url) {
 setError('No audio file available for this slide yet.');
@@ -94,7 +90,7 @@ setMode('idle');
 };
 
 void audio.play();
-}, [clearAudio, clearSpeech, slide?.audio_url]);
+}, [clearAudio, clearSpeech, slide]);
 
 const speakWithBrowser = useCallback(() => {
 if (!slide?.body) {
@@ -131,7 +127,7 @@ setMode('idle');
 utteranceRef.current = utterance;
 setError(null);
 window.speechSynthesis.speak(utterance);
-}, [clearAudio, clearSpeech, slide?.body]);
+}, [clearAudio, clearSpeech, slide]);
 
 const speak = useCallback(() => {
 if (!slide) {
