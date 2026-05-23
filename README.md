@@ -1,73 +1,52 @@
-# React + TypeScript + Vite
+# Morning Brew Slideshow (Client)
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+Mobile-first React PWA client for reading Morning Brew issues as an interactive slideshow with progressive enhancement:
 
-Currently, two official plugins are available:
+- `ready`: slides available immediately
+- `enriched`: metadata-rich link cards available
+- `audio_ready`: Kokoro MP3 playback can replace browser TTS
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+## Stack
 
-## React Compiler
+- React 19 + TypeScript + Vite
+- Firebase Web SDK (Firestore + Storage)
+- Zustand for slideshow state
+- Tailwind CSS + Dreamer UI
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## Local Setup
 
-## Expanding the ESLint configuration
-
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
-
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
-
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+npm install
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+### Environment Variables
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+Create `.env.local`:
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+```bash
+VITE_FIREBASE_API_KEY=...
+VITE_FIREBASE_AUTH_DOMAIN=...
+VITE_FIREBASE_PROJECT_ID=...
+VITE_FIREBASE_STORAGE_BUCKET=...
+VITE_FIREBASE_MESSAGING_SENDER_ID=...
+VITE_FIREBASE_APP_ID=...
+```
+
+If these variables are missing, the app automatically runs in mock mode with demo issue data.
+
+## Key Client Modules
+
+- `src/firebase.ts`: Firebase initialization
+- `src/lib/models/slideshow.models.ts`: shared issue/slide/link interfaces
+- `src/hooks/useIssue.ts`: real-time Firestore subscription (`issues/{YYYY-MM-DD}`)
+- `src/hooks/useTTS.ts`: browser speech + Kokoro MP3 fallback
+- `src/store/slideshowStore.ts`: slide index + audio preference state
+- `src/components/*`: slideshow player, status banner, links, TTS controls
+
+## Validation
+
+```bash
+npm run lint
+npm run build
 ```
