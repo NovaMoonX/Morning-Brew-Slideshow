@@ -23,5 +23,5 @@ export default defineConfig({
   },
   build: {
     chunkSizeWarningLimit: 1000, // in KB. 1000 - 1500 is good for most apps.
-  }
+  },
 });

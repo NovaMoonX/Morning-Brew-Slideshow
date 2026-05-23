@@ -1,21 +1,21 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 @custom-variant dark (&:where(.dark, .dark *));
 
 @utility page {
-	/* use dynamic viewport to handle browser UI (i.e. search bar, keyboard, etc) obscuring viewport */
-  @apply min-h-dvh w-dvw; 
+  /* use dynamic viewport to handle browser UI (i.e. search bar, keyboard, etc) obscuring viewport */
+  @apply min-h-dvh w-dvw;
 }
 
 @theme app {
-	--color-background: var(--color-slate-100);
-	--color-foreground: var(--color-slate-900);
+  --color-background: var(--color-slate-100);
+  --color-foreground: var(--color-slate-900);
 }
 
 /* Override the variables to create a dark theme */
 .dark {
-	--color-background: var(--color-slate-900);
-	--color-foreground: var(--color-slate-100);
+  --color-background: var(--color-slate-900);
+  --color-foreground: var(--color-slate-100);
 }
 
 #root {
@@ -29,18 +29,18 @@ body {
 }
 
 html {
-	@apply bg-background
+  @apply bg-background;
 }
 
 /* Smooth height transitions for when keyboard appears on mobile */
-html, body {
+html,
+body {
   transition: height 0.3s ease;
 }
 
-
 /* Dreamer UI styles */
-@import "@moondreamsdev/dreamer-ui/styles"; /* non-TailwindCSS styles */
+@import '@moondreamsdev/dreamer-ui/styles'; /* non-TailwindCSS styles */
 @import './dreamer-ui.css'; /* customizable, theme styles */
 
 /* for TailwindCSS styles in library to be processed */
-@source "../node_modules/@moondreamsdev/dreamer-ui/dist/**/*.{js,jsx,ts,tsx}";
+@source '../node_modules/@moondreamsdev/dreamer-ui/dist/**/*.{js,jsx,ts,tsx}';
