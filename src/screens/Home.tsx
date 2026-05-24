@@ -1,107 +1,142 @@
-import { useEffect, useMemo } from 'react';
-
-import { IssueStatusBanner } from '@components/IssueStatusBanner';
-import { LinkExplorer } from '@components/LinkExplorer';
-import { SlideshowPlayer } from '@components/SlideshowPlayer';
-import { TTSEngine } from '@components/TTSEngine';
-import { useIssue } from '@hooks/useIssue';
-import { getTodayIssueId } from '@lib/issues/issue.utils';
-import { APP_DESCRIPTION, APP_TITLE } from '@lib/app';
-import { useSlideshowStore } from '@store/slideshowStore';
+import { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAppDispatch, useAppSelector } from '@store/index';
+import { fetchAvailableIssues } from '@store/issueSlice';
+import { APP_TITLE, APP_DESCRIPTION } from '@lib/app';
 
 export function Home() {
-  const issueId = getTodayIssueId();
-  const { issue, loading, error, isUsingMock } = useIssue(issueId);
-  const {
-    currentSlideIndex,
-    nextSlide,
-    previousSlide,
-    setCurrentSlideIndex,
-    preferKokoroAudio,
-    togglePreferKokoroAudio,
-  } = useSlideshowStore();
-
-  const slides = issue?.slides ?? [];
-  const totalSlides = slides.length;
-
-  const activeIndex = useMemo(() => {
-    if (!totalSlides) {
-      const result = 0;
-      return result;
-    }
-
-    const bounded = Math.min(currentSlideIndex, totalSlides - 1);
-    const result = Math.max(bounded, 0);
-    return result;
-  }, [currentSlideIndex, totalSlides]);
-
-  const activeSlide = slides[activeIndex] ?? null;
-  const links = activeSlide?.links ?? [];
-  const isAudioReady = issue?.status === 'audio_ready';
+  const navigate = useNavigate();
+  const dispatch = useAppDispatch();
+  const { availableIssues, loading, error } = useAppSelector((state) => state.issue);
 
   useEffect(() => {
-    setCurrentSlideIndex(activeIndex);
-  }, [activeIndex, setCurrentSlideIndex]);
+    dispatch(fetchAvailableIssues());
+  }, [dispatch]);
 
-  if (loading) {
+  const latestIssue = availableIssues[0];
+  const pastIssues = availableIssues.slice(1);
+
+  if (loading && availableIssues.length === 0) {
     return (
-      <div className='page flex flex-col items-center justify-center px-4'>
-        <p className='text-xl font-semibold'>Loading issue {issueId}…</p>
+      <div className="flex h-screen w-screen flex-col items-center justify-center p-4">
+        <div className="size-12 animate-spin rounded-full border-4 border-slate-300 border-t-sky-500"></div>
+        <p className="mt-4 text-slate-500 dark:text-slate-400">Loading newsletter issues...</p>
       </div>
     );
   }
 
-  if (error) {
+  if (error && availableIssues.length === 0) {
     return (
-      <div className='page flex flex-col items-center justify-center px-4'>
-        <div className='border-destructive/40 bg-destructive/10 text-destructive max-w-xl rounded-xl border p-5'>
-          <p className='font-semibold'>Failed to load issue</p>
-          <p className='mt-2 text-sm'>{error}</p>
-        </div>
-      </div>
-    );
-  }
-
-  if (!issue || !activeSlide) {
-    return (
-      <div className='page flex flex-col items-center justify-center px-4'>
-        <div className='border-foreground/20 bg-background/80 max-w-xl space-y-2 rounded-xl border p-5 text-center'>
-          <p className='text-2xl font-bold'>{APP_TITLE}</p>
-          <p className='text-foreground/70'>
-            No issue data is available for {issueId} yet.
-          </p>
+      <div className="flex h-screen w-screen flex-col items-center justify-center p-4 text-center">
+        <div className="max-w-md rounded-xl border border-red-200 bg-red-50 p-6 dark:border-red-900/30 dark:bg-red-950/15">
+          <h2 className="text-lg font-semibold text-red-800 dark:text-red-400">Failed to Load Issues</h2>
+          <p className="mt-2 text-sm text-red-600 dark:text-red-500">{error}</p>
+          <button
+            onClick={() => dispatch(fetchAvailableIssues())}
+            className="mt-4 rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 transition"
+          >
+            Retry Fetch
+          </button>
         </div>
       </div>
     );
   }
 
   return (
-    <div className='page px-4 py-10'>
-      <div className='mx-auto w-full max-w-3xl space-y-5'>
-        <header className='space-y-2'>
-          <h1 className='text-3xl font-bold md:text-4xl'>{APP_TITLE}</h1>
-          <p className='text-foreground/75'>{APP_DESCRIPTION}</p>
-          <p className='text-foreground/60 text-sm'>Issue: {issue.id}</p>
+    <div className="min-h-screen bg-slate-50 text-slate-900 transition-colors duration-200 dark:bg-slate-950 dark:text-slate-50">
+      {/* Container */}
+      <div className="mx-auto max-w-4xl px-4 py-12 md:px-6">
+        
+        {/* Header */}
+        <header className="mb-10 text-center md:text-left md:flex md:items-end md:justify-between">
+          <div>
+            <span className="text-xs font-bold uppercase tracking-widest text-sky-500">interactive slides</span>
+            <h1 className="mt-1 text-3xl font-extrabold tracking-tight md:text-4xl">{APP_TITLE}</h1>
+            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400 max-w-md">
+              {APP_DESCRIPTION}
+            </p>
+          </div>
         </header>
 
-        <IssueStatusBanner status={issue.status} isUsingMock={isUsingMock} />
+        {/* Latest Issue Hero Section */}
+        {latestIssue && (
+          <section className="mb-12">
+            <h2 className="mb-4 text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+              Latest Daily Issue
+            </h2>
+            <div
+              onClick={() => navigate(`/issue/${latestIssue.id}`)}
+              className="group relative cursor-pointer overflow-hidden rounded-2xl bg-slate-100 shadow-sm transition-all hover:-translate-y-1 hover:shadow-md dark:bg-slate-900"
+            >
+              {/* Cover Aspect Ratio Image */}
+              <div className="relative h-64 sm:h-80 w-full">
+                <img
+                  src={latestIssue.primary_image_url || 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=1200&auto=format&fit=crop&q=80'}
+                  alt={latestIssue.title}
+                  className="h-full w-full object-cover transition-transform duration-500 group-hover:scale-102"
+                />
+                {/* Dark Vignette Overlay */}
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/40 to-transparent"></div>
+              </div>
 
-        <SlideshowPlayer
-          slide={activeSlide}
-          currentIndex={activeIndex}
-          totalSlides={totalSlides}
-          onPrevious={() => previousSlide(totalSlides)}
-          onNext={() => nextSlide(totalSlides)}
-        />
+              {/* Cover Details Text */}
+              <div className="absolute bottom-0 left-0 right-0 p-6 md:p-8 text-white">
+                <span className="inline-block rounded-full bg-sky-500 px-3 py-1 text-xs font-bold uppercase tracking-wide text-white">
+                  {latestIssue.status === 'audio_ready' ? 'Audio Ready' : latestIssue.status === 'enriched' ? 'Enriched' : 'Ready'}
+                </span>
+                <h3 className="mt-3 text-2xl font-bold tracking-tight md:text-3xl line-clamp-2">
+                  {latestIssue.title}
+                </h3>
+                <p className="mt-2 text-sm text-slate-300 font-medium">
+                  {latestIssue.date}
+                </p>
+              </div>
+            </div>
+          </section>
+        )}
 
-        <TTSEngine
-          slide={activeSlide}
-          preferKokoroAudio={preferKokoroAudio && isAudioReady}
-          onToggleAudioMode={togglePreferKokoroAudio}
-          isAudioReady={isAudioReady}
-        />
+        {/* Past Issues Section */}
+        {pastIssues.length > 0 && (
+          <section>
+            <h2 className="mb-6 text-xs font-semibold uppercase tracking-wider text-slate-400 dark:text-slate-500">
+              Past Slideshows
+            </h2>
+            <div className="grid gap-6 sm:grid-cols-2">
+              {pastIssues.map((issue) => (
+                <div
+                  key={issue.id}
+                  onClick={() => navigate(`/issue/${issue.id}`)}
+                  className="group flex cursor-pointer overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition hover:-translate-y-1 hover:shadow-md dark:border-slate-800 dark:bg-slate-900"
+                >
+                  {/* Small Aspect Square Thumbnail */}
+                  <div className="h-32 w-32 shrink-0 overflow-hidden relative">
+                    <img
+                      src={issue.primary_image_url || 'https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=400&auto=format&fit=crop&q=80'}
+                      alt={issue.title}
+                      className="h-full w-full object-cover transition duration-300 group-hover:scale-105"
+                    />
+                    <div className="absolute inset-0 bg-slate-950/10 dark:bg-slate-950/20"></div>
+                  </div>
 
-        {issue.status === 'ready' ? null : <LinkExplorer links={links} />}
+                  {/* Core Card metadata details */}
+                  <div className="flex flex-col justify-between p-4">
+                    <div>
+                      <p className="text-xs font-semibold text-sky-500 dark:text-sky-400">
+                        {issue.date}
+                      </p>
+                      <h4 className="mt-1 font-bold text-slate-800 dark:text-slate-100 line-clamp-2 leading-tight group-hover:text-sky-500 transition-colors">
+                        {issue.title}
+                      </h4>
+                    </div>
+                    <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">
+                      {issue.status === 'audio_ready' ? 'Audio available' : 'slides only'}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+        )}
       </div>
     </div>
   );

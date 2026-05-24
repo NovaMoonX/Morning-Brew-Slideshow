@@ -1,20 +1,20 @@
-import { Button } from '@moondreamsdev/dreamer-ui/components';
+import { Link } from 'react-router-dom';
 
 function About() {
   return (
-    <div className='page flex flex-col items-center justify-center'>
-      <div className='max-w-2xl space-y-6 px-4 text-center'>
-        <h1 className='text-5xl font-bold md:text-6xl'>About Us</h1>
-        <p className='text-foreground/80 text-lg md:text-xl'>
-          This is your about page - lazy loaded for better performance!
+    <div className="flex h-screen w-screen flex-col items-center justify-center bg-slate-50 text-slate-900 transition-colors duration-200 dark:bg-slate-950 dark:text-slate-50">
+      <div className="max-w-2xl space-y-6 px-4 text-center">
+        <h1 className="text-4xl font-extrabold tracking-tight md:text-5xl">About Morning Brew Slideshow</h1>
+        <p className="text-slate-600 dark:text-slate-400 text-lg md:text-xl font-light">
+          This is the about page, lazy loaded to ensure fast, top-tier performance benchmarks.
         </p>
-        <div className='pt-4'>
-          <Button
-            href='/'
-            className='bg-accent hover:bg-accent/80 inline-block rounded-lg px-6 py-3 font-medium text-white transition-colors'
+        <div className="pt-4">
+          <Link
+            to="/"
+            className="inline-block rounded-full bg-sky-600 px-6 py-2.5 font-bold uppercase tracking-wider text-xs text-white transition hover:bg-sky-500 shadow-md"
           >
             ← Back to Home
-          </Button>
+          </Link>
         </div>
       </div>
     </div>

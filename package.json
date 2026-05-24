@@ -16,13 +16,13 @@
     "deploy:all": "cd functions && npm run build && cd .. && firebase deploy --only firestore:rules,firestore:indexes,storage,functions"
   },
   "dependencies": {
-    "@moondreamsdev/dreamer-ui": "^1.7.26",
+    "@reduxjs/toolkit": "^2.5.1",
     "@vitejs/plugin-react-swc": "^4.3.1",
     "firebase": "^12.6.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
-    "react-router-dom": "^7.15.1",
-    "zustand": "^5.0.8"
+    "react-redux": "^9.2.0",
+    "react-router-dom": "^7.15.1"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

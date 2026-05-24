@@ -10,7 +10,11 @@
   },
   "hosting": {
     "public": "dist",
-    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "ignore": [
+      "firebase.json",
+      "**/.*",
+      "**/node_modules/**"
+    ],
     "rewrites": [
       {
         "source": "**",
@@ -20,7 +24,6 @@
   },
   "functions": [
     {
-      "source": "functions",
       "codebase": "default",
       "disallowLegacyRuntimeConfig": true,
       "ignore": [
@@ -30,6 +33,7 @@
         "firebase-debug.*.log",
         "*.local"
       ],
+      "source": "functions",
       "runtime": "python313"
     }
   ]
