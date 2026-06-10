@@ -174,7 +174,7 @@ export function useTTS({ slide, totalSlides }: UseTTSProps) {
   }, [slide, isPlaying, playSlideAudio, stopAllPlayback]);
 
   useEffect(() => {
-    if (!slide || slide.type === 'link_cards') {
+    if (!slide || slide.type === 'link_cards' || slide.type === 'section_hero') {
       return;
     }
 

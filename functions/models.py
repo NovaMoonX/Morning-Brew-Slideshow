@@ -92,6 +92,7 @@ class BrewIssue:
     intro: str
     tickers: List[MarketTicker]
     sections: List[ContentSection]
+    intro_blocks: List[ContentBlock] = None
     markets_commentary: List[ContentBlock] = None
     word_of_day: Optional[str] = None
     fetched_at: datetime = None
@@ -105,6 +106,8 @@ class BrewIssue:
             self.slides = []
         if self.markets_commentary is None:
             self.markets_commentary = []
+        if self.intro_blocks is None:
+            self.intro_blocks = []
 
     def to_dict(self):
         return {
@@ -114,6 +117,7 @@ class BrewIssue:
             'subject_line': self.subject_line,
             'primary_image_url': self.primary_image_url,
             'intro': self.intro,
+            'intro_blocks': [b.to_dict() for b in self.intro_blocks],
             'tickers': [t.to_dict() for t in self.tickers],
             'markets_commentary': [b.to_dict() for b in self.markets_commentary],
             'sections': [s.to_dict() for s in self.sections],

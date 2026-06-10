@@ -52,8 +52,11 @@ class MorningBrewParser:
         # Clean parser BeautifulSoup object
         body_soup = BeautifulSoup(html_body, 'html.parser')
         
-        # 2. Parse Intro Blurb (newsletter HTML is table-heavy; <p> tags often sit after story-container)
-        intro_text = self._parse_intro(body_soup, issue_data.get('previewText'))
+        # 2. Parse opening blurb (Salud / drink-of-summer section before MARKETS)
+        intro_blocks = self._parse_top_blurb(body_soup)
+        intro_text = "\n\n".join(block.text for block in intro_blocks)
+        if not intro_text:
+            intro_text = self._parse_intro_fallback(issue_data.get('previewText'))
 
         # 3. Parse Financial Tickers + markets commentary
         tickers = self._parse_tickers(body_soup)
@@ -78,15 +81,6 @@ class MorningBrewParser:
                     continue
                 sections.append(section)
 
-        # Top-blurb rows sit outside story-container but belong to the first story
-        if sections and story_divs:
-            orphan_blurb = body_soup.find(class_='top-blurb-container')
-            if orphan_blurb and not story_divs[0].find(class_='top-blurb-container'):
-                blurb_blocks = self._parse_blocks_from_root(
-                    orphan_blurb, sections[0].id, sections[0].title
-                )
-                sections[0].content_blocks = blurb_blocks + sections[0].content_blocks
-
         # 5. Word of Day
         word_of_day = self._extract_word_of_day(body_soup)
 
@@ -97,6 +91,7 @@ class MorningBrewParser:
             subject_line=subject_line,
             primary_image_url=primary_image,
             intro=intro_text,
+            intro_blocks=intro_blocks,
             tickers=tickers,
             sections=sections,
             markets_commentary=markets_commentary,
@@ -146,12 +141,7 @@ class MorningBrewParser:
         blocks = []
         content_container = div_soup.find(class_=re.compile(r'(content-container|body|story-content)'))
         scan_roots: List = []
-        top_blurb = div_soup.find(class_='top-blurb-container')
-        if top_blurb:
-            scan_roots.append(top_blurb)
-        if content_container and top_blurb not in content_container.descendants:
-            scan_roots.append(content_container)
-        elif content_container and not top_blurb:
+        if content_container:
             scan_roots.append(content_container)
         if not scan_roots:
             scan_roots.append(div_soup)
@@ -279,6 +269,7 @@ class MorningBrewParser:
         html = re.sub(r'(\w)(<(?:a|strong|b|em|i|span)\b)', r'\1 \2', html)
         html = re.sub(r'(</(?:a|strong|b|em|i|span)>)(<span>)([A-Za-z])', r'\1\2 \3', html)
         html = re.sub(r'(</span><span>)([A-Za-z])', r'\1 \2', html)
+        html = re.sub(r'(</(?:strong|b|em|i)>)([A-Za-z])', r'\1 \2', html)
         html = re.sub(r'(<(?:strong|b|em|i|span)[^>]*>[^<]*:)(</(?:strong|b|em|i|span)>)', r'\1 \2', html)
         return html
 
@@ -375,42 +366,23 @@ class MorningBrewParser:
             return slug.replace('-', ' ').title()
         return "Morning Brew"
 
-    def _parse_intro(self, body_soup: BeautifulSoup, preview_text: Optional[str]) -> str:
-        intro_paras: List[str] = []
-        first_container = body_soup.find(class_='story-container')
+    def _parse_top_blurb(self, soup) -> List[ContentBlock]:
+        blurb = soup.find(class_='top-blurb-container')
+        if not blurb:
+            return []
+        return self._parse_blocks_from_root(blurb, 'intro', "Today's Brew")
 
-        if first_container:
-            html_str = str(body_soup)
-            marker_idx = html_str.find('class="story-container"')
-            if marker_idx < 0:
-                marker_idx = html_str.find("class='story-container'")
-            if marker_idx > 0:
-                intro_soup = BeautifulSoup(html_str[:marker_idx], 'html.parser')
-                for tag in intro_soup.find_all(['p', 'li']):
-                    if tag.find_parent(class_=re.compile(r'top-blurb')):
-                        continue
-                    text = tag.get_text(strip=True)
-                    if len(text) < 20:
-                        continue
-                    upper = text.upper()
-                    if any(k in upper for k in ['SUBSCRIBE', 'VIEW ONLINE', 'ADVERTISEMENT', 'SIGN UP']):
-                        continue
-                    intro_paras.append(text)
-
-        if not intro_paras:
-            for tag in body_soup.find_all('p'):
-                if first_container and tag.sourceline and first_container.sourceline and tag.sourceline >= first_container.sourceline:
-                    break
-                text = tag.get_text(strip=True)
-                if text and len(text) >= 20 and not any(k in text.upper() for k in ['INGEST', 'MORNING BREW', 'SUBSCRIBE']):
-                    intro_paras.append(text)
-
-        intro_text = "\n\n".join(intro_paras[:4])
-        if intro_text:
-            return intro_text
+    def _parse_intro_fallback(self, preview_text: Optional[str]) -> str:
         if preview_text:
             return preview_text.strip()
         return "Welcome to today's edition of the Morning Brew. Let's walk through the latest global highlights."
+
+    def _parse_intro(self, body_soup: BeautifulSoup, preview_text: Optional[str]) -> str:
+        """Deprecated: kept for compatibility; use _parse_top_blurb instead."""
+        blocks = self._parse_top_blurb(body_soup)
+        if blocks:
+            return "\n\n".join(block.text for block in blocks)
+        return self._parse_intro_fallback(preview_text)
 
     def _normalize_issue_id(self, date_value: str) -> str:
         """Return YYYY-MM-DD for Firestore document ids."""

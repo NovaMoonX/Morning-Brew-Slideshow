@@ -13,6 +13,18 @@ class SlideBuilder:
             return False
         return True
 
+    def _render_intro_html(self, blocks) -> str:
+        parts = []
+        for block in blocks:
+            if block.body_html:
+                if block.type == 'bullet':
+                    parts.append(f'<p>{block.body_html}</p>')
+                else:
+                    parts.append(f'<p>{block.body_html}</p>')
+            else:
+                parts.append(f'<p>{block.text}</p>')
+        return ''.join(parts)
+
     def build_slides(self, issue: BrewIssue) -> List[Slide]:
         slides = []
         order = 0
@@ -31,6 +43,10 @@ class SlideBuilder:
         ))
         order += 1
 
+        intro_blocks = issue.intro_blocks or []
+        intro_links = [link for block in intro_blocks for link in (block.links or [])]
+        intro_html = self._render_intro_html(intro_blocks) if intro_blocks else None
+
         slides.append(Slide(
             id=f"intro_{order:03d}",
             type="intro",
@@ -38,8 +54,9 @@ class SlideBuilder:
             section_label="OVERVIEW",
             title="Today's Brew",
             body=issue.intro,
+            body_html=intro_html,
             image_url=issue.primary_image_url,
-            links=[],
+            links=intro_links,
             order=order
         ))
         order += 1
@@ -103,9 +120,14 @@ class SlideBuilder:
         order += 1
 
         all_links: List[LinkRef] = []
+        pending_subheading: str = ""
 
         for b_idx, block in enumerate(section.content_blocks):
             if block.text.strip().lower() == section.title.strip().lower():
+                continue
+
+            if block.type == "subheading":
+                pending_subheading = block.text.strip()
                 continue
 
             body_links = [link for link in block.links if self._is_body_content_link(link, section)]
@@ -119,9 +141,12 @@ class SlideBuilder:
 
             if block.type == "bullet":
                 slide_type = "bullet"
-            elif block.type == "subheading":
-                slide_type = "body"
-                title_text = block.text
+                if pending_subheading:
+                    title_text = pending_subheading
+                    pending_subheading = ""
+            elif pending_subheading:
+                title_text = pending_subheading
+                pending_subheading = ""
 
             slides.append(Slide(
                 id=f"{sec_id}_block_{b_idx:02d}_{order:03d}",

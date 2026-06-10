@@ -163,6 +163,19 @@ def enrich_issue(event: firestore_fn.Event[firestore_fn.DocumentSnapshot | None]
                 for t in raw_data.get('tickers', [])
             ]
             
+            intro_blocks = [
+                ContentBlock(
+                    type=b.get('type', 'paragraph'),
+                    text=b.get('text', ''),
+                    body_html=b.get('body_html'),
+                    links=[
+                        LinkRef(url=l.get('url'), anchor_text=l.get('anchor_text'), section_id=l.get('section_id'))
+                        for l in b.get('links', [])
+                    ],
+                )
+                for b in raw_data.get('intro_blocks', [])
+            ]
+
             reconstructed_issue = BrewIssue(
                 id=raw_data.get('id'),
                 date=raw_data.get('date'),
@@ -170,6 +183,7 @@ def enrich_issue(event: firestore_fn.Event[firestore_fn.DocumentSnapshot | None]
                 subject_line=raw_data.get('subject_line'),
                 primary_image_url=raw_data.get('primary_image_url'),
                 intro=raw_data.get('intro'),
+                intro_blocks=intro_blocks,
                 tickers=brew_tickers,
                 sections=reconstructed_sections
             )

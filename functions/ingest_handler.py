@@ -59,17 +59,25 @@ def handle_ingest_issue(req) -> tuple[str, int]:
         builder = SlideBuilder()
         issue.slides = builder.build_slides(issue)
 
-        _log(f"Writing issue {actual_date} to Firestore ({len(issue.slides)} slides)")
+        slides_list = [s.to_dict() for s in issue.slides]
+        _log("Enriching link metadata")
+        from link_enrichment import enrich_slide_links
+        enrich_slide_links(slides_list)
+
+        _log(f"Writing issue {actual_date} to Firestore ({len(slides_list)} slides)")
         try:
+            issue_dict = issue.to_dict()
+            issue_dict['slides'] = slides_list
+            issue_dict['status'] = 'enriched'
             get_db().collection('issues').document(actual_date).set(
-                issue.to_dict(), timeout=FIRESTORE_TIMEOUT_SEC
+                issue_dict, timeout=FIRESTORE_TIMEOUT_SEC
             )
             get_db().collection('issue_index').document(actual_date).set({
                 'id': actual_date,
                 'date': issue.date,
                 'title': issue.title,
                 'primary_image_url': issue.primary_image_url,
-                'status': 'ready',
+                'status': 'enriched',
                 'fetched_at': datetime.utcnow().isoformat()
             }, timeout=FIRESTORE_TIMEOUT_SEC)
         except Exception as firestore_err:
@@ -82,7 +90,7 @@ def handle_ingest_issue(req) -> tuple[str, int]:
 
         _log(f"Done — ingested {actual_date}")
         return (
-            f"Successfully ingested issue {actual_date}. Total slides: {len(issue.slides)}",
+            f"Successfully ingested issue {actual_date}. Total slides: {len(slides_list)}",
             200,
         )
     except Exception as e:

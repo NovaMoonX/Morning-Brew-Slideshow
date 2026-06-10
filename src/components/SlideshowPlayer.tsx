@@ -73,25 +73,21 @@ function SplitMarketsLayout({ slide }: { slide: Slide }) {
   );
 
   return (
-    <div className="absolute inset-0 flex flex-col bg-slate-950">
-      <div className="flex h-1/2 shrink-0 flex-col gap-2 overflow-hidden px-6 pt-14 pb-2 md:px-10 md:pt-16">
-        <SectionHeader label="MARKETS" title={slide.title} inline />
-        <div className="shrink-0">
-          <MarketsTable tickers={tickers} compact />
+    <div className="absolute inset-0 grid w-full grid-cols-1 grid-rows-[minmax(0,54%)_minmax(0,46%)] gap-y-4 bg-slate-950">
+      <div className="flex min-h-0 w-full flex-col gap-2 overflow-hidden px-6 pt-14 pb-0 md:px-10 md:pt-16">
+        <SectionHeader label="MARKETS" title={null} inline />
+        <div className="flex w-full min-h-0 flex-1 items-stretch">
+          <MarketsTable tickers={tickers} />
         </div>
       </div>
 
-      <div className="flex h-1/2 min-h-0 flex-col bg-gradient-to-b from-slate-950 to-slate-950 px-6 pb-36 pt-4 md:px-10 md:pb-40 md:pt-6">
-        <div className="mx-auto flex min-h-0 w-full max-w-xl flex-1 flex-col overflow-hidden">
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-            <div className="space-y-3 pb-4">
-              {commentaryHtml ? (
-                <SlideBody slide={commentarySlide} className="text-sm md:text-base" />
-              ) : (
-                <p className="text-sm text-slate-400">No market commentary for today.</p>
-              )}
-            </div>
-          </div>
+      <div className="flex min-h-0 w-full flex-col overflow-y-auto px-6 pb-36 pt-2 md:px-10 md:pb-40">
+        <div className="mx-auto w-full max-w-xl">
+          {commentaryHtml ? (
+            <SlideBody slide={commentarySlide} className="text-sm md:text-base" />
+          ) : (
+            <p className="text-sm text-slate-400">No market commentary for today.</p>
+          )}
         </div>
       </div>
     </div>
@@ -209,7 +205,7 @@ export function SlideshowPlayer({
   return (
     <div
       onClick={handleTap}
-      className="relative flex h-dvh w-dvw cursor-pointer flex-col bg-slate-950 text-white select-none"
+      className="relative flex h-full w-full cursor-pointer flex-col bg-slate-950 text-white select-none"
     >
       {!usesSplitLayout && (
         <div className="absolute inset-0 z-0">
@@ -245,11 +241,20 @@ export function SlideshowPlayer({
       {usesSectionLayout && (
         <SplitImageLayout
           imageUrl={sectionImageUrl!}
-          topOverlay={<SectionHeader label={sectionLabel} title={sectionTitle} />}
+          topOverlay={
+            slide.type === 'section_hero' ? undefined : (
+              <SectionHeader label={sectionLabel} title={sectionTitle} />
+            )
+          }
           bottomPadding={showSkipButton ? 'pb-44 md:pb-48' : 'pb-36 md:pb-40'}
         >
           {slide.type === 'section_hero' && (
-            <SectionHeroCountdown slideId={slide.id} sectionTitle={sectionTitle} />
+            <SectionHeroCountdown
+              slideId={slide.id}
+              sectionLabel={sectionLabel}
+              sectionTitle={sectionTitle}
+              totalSlides={totalSlides}
+            />
           )}
 
           {(slide.type === 'body' || slide.type === 'bullet') && (

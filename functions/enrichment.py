@@ -68,6 +68,12 @@ class LinkEnricher:
             og_image = soup.find('meta', property='og:image')
             link.og_image = og_image.get('content') if og_image else None
 
+            og_url = soup.find('meta', property='og:url')
+            if og_url and og_url.get('content'):
+                og_domain = self._hostname(og_url.get('content'))
+                if og_domain and 'morningbrew.com' not in og_domain:
+                    link.domain = og_domain
+
             # If description is too short or missing, flag it for Gemini enrichment
             # (Checks if length < 80 characters or starts with paywall indicators)
             desc_text = link.og_description or ""

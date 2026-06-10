@@ -74,7 +74,8 @@ export function SlideshowPage() {
   }
 
   return (
-    <div className="relative h-dvh w-dvw overflow-hidden bg-slate-950 text-slate-50 select-none">
+    <div className="min-h-dvh w-full bg-slate-950">
+      <div className="relative mx-auto h-dvh w-full max-w-lg overflow-hidden text-slate-50 select-none">
       {/* Floating Exit Button */}
       <button
         onClick={() => navigate('/')}
@@ -107,6 +108,7 @@ export function SlideshowPage() {
         totalSlides={totalSlides}
         isAudioReady={isAudioReady}
       />
+      </div>
     </div>
   );
 }

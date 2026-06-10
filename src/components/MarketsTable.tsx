@@ -50,18 +50,18 @@ export function MarketsTable({ tickers, compact = false }: MarketsTableProps) {
     );
   }
 
-  const cellClass = compact ? 'px-3 py-1.5' : 'px-4 py-3';
+  const cellClass = compact ? 'px-3 py-2' : 'px-4 py-3.5';
   const textClass = compact ? 'text-xs' : 'text-sm';
-  const headerClass = compact ? 'px-3 py-2 text-[10px]' : 'px-4 py-3 text-xs';
+  const headerClass = compact ? 'px-3 py-2.5 text-[10px]' : 'px-4 py-3 text-xs';
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/80">
-      <table className={`w-full ${textClass}`}>
+    <div className="flex h-full w-full flex-col overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/80">
+      <table className={`h-full w-full table-fixed ${textClass}`}>
         <thead>
           <tr className="border-b border-slate-800 text-left uppercase tracking-wider text-slate-500">
-            <th className={`${headerClass} font-semibold`}>Ticker</th>
-            <th className={`${headerClass} font-semibold`}>Value</th>
-            <th className={`${headerClass} text-right font-semibold`}>Change</th>
+            <th className={`${headerClass} w-[28%] font-semibold`}>Ticker</th>
+            <th className={`${headerClass} w-[42%] font-semibold`}>Value</th>
+            <th className={`${headerClass} w-[30%] text-right font-semibold`}>Change</th>
           </tr>
         </thead>
         <tbody>
@@ -71,7 +71,7 @@ export function MarketsTable({ tickers, compact = false }: MarketsTableProps) {
               <td className={`${cellClass} font-medium text-slate-200`}>{row.value}</td>
               <td className={`${cellClass} text-right`}>
                 <span
-                  className={`inline-block rounded-md px-2 py-0.5 text-[10px] font-bold md:text-xs ${
+                  className={`inline-block rounded-md px-2.5 py-1 text-xs font-bold ${
                     row.direction === 'up'
                       ? 'bg-emerald-500/20 text-emerald-400'
                       : 'bg-rose-500/20 text-rose-400'
