@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 
 function About() {
   return (
-    <div className="flex h-screen w-screen flex-col items-center justify-center bg-slate-50 text-slate-900 transition-colors duration-200 dark:bg-slate-950 dark:text-slate-50">
+    <div className="flex h-screen w-screen flex-col items-center justify-center bg-background text-foreground transition-colors duration-200">
       <div className="max-w-2xl space-y-6 px-4 text-center">
         <h1 className="text-4xl font-extrabold tracking-tight md:text-5xl">About Morning Brew Slideshow</h1>
         <p className="text-slate-600 dark:text-slate-400 text-lg md:text-xl font-light">

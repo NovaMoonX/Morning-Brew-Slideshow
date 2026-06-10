@@ -52,7 +52,7 @@ export function LinkExplorer({
       >
         <button
           onClick={handleSkip}
-          className="rounded-full bg-slate-900 px-6 py-2.5 text-sm font-bold uppercase tracking-wider text-slate-300 transition hover:text-white border border-slate-800 shadow-lg"
+          className="rounded-full border border-border bg-surface px-6 py-2.5 text-sm font-bold uppercase tracking-wider text-muted transition hover:text-foreground shadow-lg"
         >
           Skip Section
         </button>
@@ -65,7 +65,7 @@ export function LinkExplorer({
       {embedded && (
         <div className="mb-2 shrink-0 text-center">
           <h2 className="text-sm font-bold md:text-base">Want to know more?</h2>
-          <p className="mt-0.5 text-[10px] text-slate-400 md:text-xs">
+          <p className="mt-0.5 text-[10px] text-muted md:text-xs">
             Related articles from this story.
           </p>
         </div>
@@ -85,15 +85,15 @@ export function LinkExplorer({
           return (
             <div
               key={`${link.url}-${index}`}
-              className={`flex shrink-0 snap-start flex-col overflow-hidden rounded-xl border border-slate-800/80 bg-slate-900/90 text-white shadow-xl backdrop-blur-md ${
+              className={`flex shrink-0 snap-start flex-col overflow-hidden rounded-xl border border-border bg-surface-glass text-foreground shadow-xl backdrop-blur-md ${
                 embedded
                   ? 'w-[calc(100%-1.25rem)] max-w-md'
                   : 'w-[calc(100%-2rem)] max-w-md snap-center'
               }`}
             >
-              <div className={`relative w-full shrink-0 bg-slate-950 ${embedded ? 'h-24' : 'h-24 md:h-28'}`}>
+              <div className={`relative w-full shrink-0 bg-surface-muted ${embedded ? 'h-24' : 'h-24 md:h-28'}`}>
                 <img src={imageUrl} alt="" className="h-full w-full object-cover" />
-                <span className="absolute top-1.5 left-1.5 rounded-md bg-slate-950/80 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-slate-300">
+                <span className="absolute top-1.5 left-1.5 rounded-md bg-background/80 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-muted">
                   {domain}
                 </span>
               </div>
@@ -113,7 +113,7 @@ export function LinkExplorer({
                   {title}
                 </h3>
                 <p
-                  className={`mt-0.5 min-h-0 flex-1 line-clamp-2 leading-snug text-slate-400 ${
+                  className={`mt-0.5 min-h-0 flex-1 line-clamp-2 leading-snug text-muted ${
                     embedded ? 'text-[11px]' : 'text-xs leading-relaxed'
                   }`}
                 >
@@ -160,7 +160,7 @@ export function LinkExplorer({
         <div className={`flex shrink-0 justify-center ${embedded ? 'mt-3' : 'mt-2'}`}>
           <button
             onClick={handleSkip}
-            className="rounded-full border border-slate-800 bg-slate-900/90 px-8 py-2.5 text-xs font-bold uppercase tracking-wider text-slate-300 shadow-lg backdrop-blur-md transition hover:text-white"
+            className="rounded-full border border-border bg-surface-glass px-8 py-2.5 text-xs font-bold uppercase tracking-wider text-muted shadow-lg backdrop-blur-md transition hover:text-foreground"
           >
             Skip to Next Story
           </button>

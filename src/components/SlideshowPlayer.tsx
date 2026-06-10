@@ -31,7 +31,7 @@ function TableOfContentsIconButton({ onClick }: { onClick: (event: React.MouseEv
     <button
       type="button"
       onClick={onClick}
-      className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-800 bg-slate-900 text-slate-300 shadow-lg transition hover:bg-slate-800 hover:text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+      className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-border bg-surface text-muted shadow-lg transition hover:bg-surface-elevated hover:text-foreground focus:outline-none focus:ring-2 focus:ring-sky-500"
       aria-label="Open table of contents"
     >
       <svg
@@ -62,8 +62,8 @@ function SectionHeader({
   inline?: boolean;
 }) {
   const boxClass = inline
-    ? 'rounded-xl border border-slate-800 bg-slate-950 px-4 py-3 shadow-lg'
-    : 'rounded-xl border border-white/10 bg-slate-950/75 px-4 py-3 shadow-lg backdrop-blur-md';
+    ? 'rounded-xl border border-border bg-surface px-4 py-3 shadow-lg'
+    : 'rounded-xl border border-border bg-surface-glass px-4 py-3 shadow-lg backdrop-blur-md';
 
   const box = (
     <div className={boxClass}>
@@ -72,7 +72,7 @@ function SectionHeader({
       </span>
       {title && (
         <h2
-          className={`mt-1.5 font-bold leading-snug text-white ${
+          className={`mt-1.5 font-bold leading-snug text-foreground ${
             inline
               ? 'text-lg line-clamp-1 md:text-xl'
               : 'text-xl line-clamp-3 md:text-2xl'
@@ -103,7 +103,7 @@ function SplitMarketsLayout({ slide }: { slide: Slide }) {
   );
 
   return (
-    <div className="absolute inset-0 grid w-full grid-cols-1 grid-rows-[minmax(0,54%)_minmax(0,46%)] gap-y-4 bg-slate-950">
+    <div className="absolute inset-0 grid w-full grid-cols-1 grid-rows-[minmax(0,54%)_minmax(0,46%)] gap-y-4 bg-background">
       <div className="flex min-h-0 w-full flex-col gap-2 overflow-hidden px-4 pb-0 pt-20 md:px-10 md:pt-[4.5rem]">
         <SectionHeader label="MARKETS" title={null} inline />
         <div className="flex w-full min-h-0 flex-1 items-stretch">
@@ -116,7 +116,7 @@ function SplitMarketsLayout({ slide }: { slide: Slide }) {
           {commentaryHtml ? (
             <SlideBody slide={commentarySlide} className="text-sm md:text-base" />
           ) : (
-            <p className="text-sm text-slate-400">No market commentary for today.</p>
+            <p className="text-sm text-muted">No market commentary for today.</p>
           )}
         </div>
       </div>
@@ -138,19 +138,19 @@ function SplitImageLayout({
   scrollable?: boolean;
 }) {
   return (
-    <div className="absolute inset-0 flex flex-col bg-slate-950">
+    <div className="absolute inset-0 flex flex-col bg-background">
       <div className="relative h-1/2 w-full shrink-0">
         <img
           src={imageUrl}
           alt=""
           className="block h-full w-full object-cover object-top"
         />
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-slate-950 to-transparent" />
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-background to-transparent" />
         {topOverlay}
       </div>
 
       <div
-        className={`flex h-1/2 min-h-0 flex-col overflow-hidden bg-gradient-to-b from-slate-950 to-slate-950 px-6 pt-4 md:px-10 md:pt-6 ${bottomPadding}`}
+        className={`flex h-1/2 min-h-0 flex-col overflow-hidden bg-gradient-to-b from-background to-background px-6 pt-4 md:px-10 md:pt-6 ${bottomPadding}`}
       >
         <div className="mx-auto flex min-h-0 w-full max-w-xl flex-1 flex-col overflow-hidden">
           {scrollable ? (
@@ -293,7 +293,7 @@ export function SlideshowPlayer({
   return (
     <div
       onClick={handleTap}
-      className="relative flex h-full w-full cursor-pointer flex-col bg-slate-950 text-white select-none"
+      className="relative flex h-full w-full cursor-pointer flex-col bg-background text-foreground select-none"
     >
       {!usesSplitLayout && (
         <div className="absolute inset-0 z-0">
@@ -302,11 +302,11 @@ export function SlideshowPlayer({
             alt=""
             className="h-full w-full object-cover blur-2xl opacity-40 scale-110"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-slate-950 via-slate-950/70 to-slate-950/90" />
+          <div className="absolute inset-0 bg-gradient-to-t from-background via-background/70 to-background/90" />
         </div>
       )}
 
-      <div className="absolute top-0 left-0 right-0 z-30 h-1 bg-slate-800/80">
+      <div className="absolute top-0 left-0 right-0 z-30 h-1 bg-border/80">
         <div
           className="h-full bg-sky-500 transition-all duration-300 ease-out"
           style={{ width: `${percentage}%` }}
@@ -350,7 +350,7 @@ export function SlideshowPlayer({
             <>
               {isTourHeadlineSlide ? (
                 <>
-                  <h3 className="text-lg font-bold leading-snug text-white md:text-xl">
+                  <h3 className="text-lg font-bold leading-snug text-foreground md:text-xl">
                     {slide.title}
                   </h3>
                   <div className="mt-3">
@@ -363,7 +363,7 @@ export function SlideshowPlayer({
               ) : (
                 <>
                   {slide.title && (
-                    <h3 className="text-base font-bold leading-tight text-white md:text-lg">
+                    <h3 className="text-base font-bold leading-tight text-foreground md:text-lg">
                       {slide.title}
                     </h3>
                   )}
@@ -401,7 +401,7 @@ export function SlideshowPlayer({
                   {slide.title}
                 </h1>
                 <div className="mx-auto h-0.5 w-12 bg-sky-500" />
-                <p className="text-sm font-medium text-slate-400">
+                <p className="text-sm font-medium text-muted">
                   Tap right to begin • Tap center to pause audio
                 </p>
                 {onOpenTableOfContents && (
@@ -411,7 +411,7 @@ export function SlideshowPlayer({
                       event.stopPropagation();
                       handleOpenTableOfContents(event);
                     }}
-                    className="pointer-events-auto inline-flex items-center gap-2 rounded-full border border-slate-700 bg-slate-900/90 px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-slate-200 shadow-lg transition hover:border-slate-600 hover:text-white"
+                    className="pointer-events-auto inline-flex items-center gap-2 rounded-full border border-border-strong bg-surface-glass px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-foreground shadow-lg transition hover:border-border hover:bg-surface-elevated"
                   >
                     <svg
                       xmlns="http://www.w3.org/2000/svg"
@@ -435,7 +435,7 @@ export function SlideshowPlayer({
 
             {slide.type === 'intro' && !slide.image_url && (
               <div className="mx-auto max-w-xl space-y-6 text-center">
-                <h2 className="text-xl font-semibold uppercase tracking-wider text-slate-400">
+                <h2 className="text-xl font-semibold uppercase tracking-wider text-muted">
                   Today&apos;s Overview
                 </h2>
                 <SlideBody slide={slide} className="text-lg md:text-2xl font-light" />
@@ -446,7 +446,7 @@ export function SlideshowPlayer({
       )}
 
       <div className="pointer-events-none absolute bottom-[4.75rem] left-0 right-0 z-20 flex flex-col items-center gap-2">
-        <div className="text-xs font-semibold tracking-wider text-slate-500">
+        <div className="text-xs font-semibold tracking-wider text-muted-soft">
           SLIDE {currentIndex + 1} OF {totalSlides}
         </div>
         {showSkipButton && (

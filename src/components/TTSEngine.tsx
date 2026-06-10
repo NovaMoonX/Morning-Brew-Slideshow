@@ -29,7 +29,7 @@ export function TTSEngine({
 
   return (
     <div className="absolute bottom-6 left-0 right-0 z-30 mx-auto max-w-sm px-4 select-none">
-      <div className="flex items-center justify-between gap-3 rounded-full border border-slate-800 bg-slate-900/90 px-4 py-3 shadow-xl backdrop-blur-md">
+      <div className="flex items-center justify-between gap-3 rounded-full border border-border bg-surface-glass px-4 py-3 shadow-xl backdrop-blur-md">
         <div className="flex shrink-0 items-center gap-2">
           <button
             onClick={() => dispatch(togglePlay())}
@@ -51,7 +51,7 @@ export function TTSEngine({
             <button
               type="button"
               onClick={onOpenTableOfContents}
-              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-slate-800 text-slate-300 transition hover:bg-slate-700 hover:text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-surface-elevated text-muted transition hover:bg-surface hover:text-foreground focus:outline-none focus:ring-2 focus:ring-sky-500"
               aria-label="Open table of contents"
             >
               <svg
@@ -83,7 +83,7 @@ export function TTSEngine({
         {/* Audio Source / Mode Indicator Pill */}
         <button
           onClick={() => dispatch(toggleAudioMode())}
-          className="rounded-full bg-slate-800 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-300 transition hover:bg-slate-700"
+          className="rounded-full bg-surface-elevated px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-muted transition hover:bg-surface"
           aria-label="Change voice generation"
         >
           {activeMode === 'kokoro'
@@ -98,7 +98,7 @@ export function TTSEngine({
         {/* Mute/Unmute Toggle */}
         <button
           onClick={() => dispatch(toggleMute())}
-          className="flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-800 hover:text-slate-100"
+          className="flex h-8 w-8 items-center justify-center rounded-full text-muted transition hover:bg-surface-elevated hover:text-foreground"
           aria-label={isMuted ? 'Unmute' : 'Mute'}
         >
           {isMuted ? (

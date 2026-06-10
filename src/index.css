@@ -10,11 +10,29 @@
 @theme app {
   --color-background: var(--color-slate-50);
   --color-foreground: var(--color-slate-900);
+  --color-surface: #ffffff;
+  --color-surface-elevated: var(--color-slate-100);
+  --color-surface-glass: rgb(255 255 255 / 0.92);
+  --color-surface-muted: var(--color-slate-100);
+  --color-border: var(--color-slate-200);
+  --color-border-strong: var(--color-slate-300);
+  --color-muted: var(--color-slate-600);
+  --color-muted-soft: var(--color-slate-500);
+  --color-accent: var(--color-sky-500);
 }
 
 .dark {
   --color-background: var(--color-slate-950);
   --color-foreground: var(--color-slate-50);
+  --color-surface: var(--color-slate-900);
+  --color-surface-elevated: var(--color-slate-900);
+  --color-surface-glass: rgb(2 6 23 / 0.78);
+  --color-surface-muted: var(--color-slate-900);
+  --color-border: var(--color-slate-800);
+  --color-border-strong: var(--color-slate-700);
+  --color-muted: var(--color-slate-400);
+  --color-muted-soft: var(--color-slate-500);
+  --color-accent: var(--color-sky-400);
 }
 
 #root {
@@ -33,7 +51,6 @@ html {
   @apply bg-background scroll-smooth;
 }
 
-/* Custom transitions and scrollbars for modern flat aesthetic */
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
@@ -42,7 +59,6 @@ html {
   scrollbar-width: none;
 }
 
-/* Audio visualizer animations */
 @keyframes eq-bounce {
   0%, 100% { transform: scaleY(0.3); }
   50% { transform: scaleY(1); }

@@ -30,16 +30,16 @@ export function IssueTableOfContents({
   };
 
   return (
-    <div className="absolute inset-0 z-50 flex flex-col bg-slate-950/95 backdrop-blur-md">
-      <div className="flex items-center justify-between border-b border-slate-800 px-5 py-4">
+    <div className="absolute inset-0 z-50 flex flex-col bg-background/95 backdrop-blur-md">
+      <div className="flex items-center justify-between border-b border-border px-5 py-4">
         <div>
-          <h2 className="text-lg font-bold text-white">Table of Contents</h2>
-          <p className="mt-0.5 text-xs text-slate-400">Jump to any section in today&apos;s issue</p>
+          <h2 className="text-lg font-bold text-foreground">Table of Contents</h2>
+          <p className="mt-0.5 text-xs text-muted">Jump to any section in today&apos;s issue</p>
         </div>
         <button
           type="button"
           onClick={onClose}
-          className="rounded-full bg-slate-900 p-2.5 text-slate-300 transition hover:bg-slate-800 hover:text-white"
+          className="rounded-full bg-surface p-2.5 text-muted transition hover:bg-surface-elevated hover:text-foreground"
           aria-label="Close table of contents"
         >
           <svg
@@ -69,15 +69,15 @@ export function IssueTableOfContents({
                     entry.indent > 0 ? 'ml-4' : ''
                   } ${
                     isActive
-                      ? 'border-sky-500/60 bg-sky-950/40'
-                      : 'border-slate-800 bg-slate-900/70 hover:border-slate-700 hover:bg-slate-900'
+                      ? 'border-sky-500/60 bg-sky-500/10 dark:bg-sky-950/40'
+                      : 'border-border bg-surface/70 hover:border-border-strong hover:bg-surface'
                   }`}
                 >
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-sky-400">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-sky-500 dark:text-sky-400">
                     {entry.label}
                   </span>
                   <p
-                    className={`mt-1 leading-snug text-white ${
+                    className={`mt-1 leading-snug text-foreground ${
                       entry.indent > 0 ? 'text-sm font-medium' : 'text-base font-bold'
                     }`}
                   >

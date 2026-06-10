@@ -130,7 +130,7 @@ export function Home() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 text-slate-900 transition-colors duration-200 dark:bg-slate-950 dark:text-slate-50">
+    <div className="min-h-screen bg-background text-foreground transition-colors duration-200">
       {/* Container */}
       <div className="mx-auto max-w-4xl px-4 py-12 md:px-6">
         

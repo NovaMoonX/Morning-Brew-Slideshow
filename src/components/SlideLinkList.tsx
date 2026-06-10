@@ -34,7 +34,7 @@ export function SlideLinkList({ links, sectionTitle = null }: SlideLinkListProps
   }
 
   return (
-    <div className="mt-4 space-y-2 border-t border-slate-800 pt-4">
+    <div className="mt-4 space-y-2 border-t border-border pt-4">
       {visible.map((link, index) => (
         <a
           key={`${link.url}-${index}`}

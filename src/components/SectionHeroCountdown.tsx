@@ -56,11 +56,11 @@ export function SectionHeroCountdown({
         {sectionLabel}
       </span>
       {sectionTitle && (
-        <h2 className="mt-3 max-w-md text-2xl font-extrabold leading-tight text-white md:text-3xl">
+        <h2 className="mt-3 max-w-md text-2xl font-extrabold leading-tight text-foreground md:text-3xl">
           {sectionTitle}
         </h2>
       )}
-      <p className="mt-6 text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+      <p className="mt-6 text-xs font-semibold uppercase tracking-[0.2em] text-muted">
         Story starts in
       </p>
       <p className="mt-3 text-7xl font-extrabold tabular-nums leading-none text-sky-400 md:text-8xl">

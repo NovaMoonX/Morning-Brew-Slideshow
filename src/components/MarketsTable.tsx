@@ -46,7 +46,7 @@ interface MarketsTableProps {
 export function MarketsTable({ tickers, compact = false }: MarketsTableProps) {
   if (tickers.length === 0) {
     return (
-      <p className="text-center text-sm text-slate-400">Market data unavailable.</p>
+      <p className="text-center text-sm text-muted">Market data unavailable.</p>
     );
   }
 
@@ -55,10 +55,10 @@ export function MarketsTable({ tickers, compact = false }: MarketsTableProps) {
   const headerClass = compact ? 'px-3 py-2.5 text-[10px]' : 'px-4 py-3 text-xs';
 
   return (
-    <div className="flex h-full w-full flex-col overflow-hidden rounded-2xl border border-slate-800 bg-slate-900/80">
+    <div className="flex h-full w-full flex-col overflow-hidden rounded-2xl border border-border bg-surface-glass">
       <table className={`h-full w-full table-fixed ${textClass}`}>
         <thead>
-          <tr className="border-b border-slate-800 text-left uppercase tracking-wider text-slate-500">
+          <tr className="border-b border-border text-left uppercase tracking-wider text-muted-soft">
             <th className={`${headerClass} w-[28%] font-semibold`}>Ticker</th>
             <th className={`${headerClass} w-[42%] font-semibold`}>Value</th>
             <th className={`${headerClass} w-[30%] text-right font-semibold`}>Change</th>
@@ -66,9 +66,9 @@ export function MarketsTable({ tickers, compact = false }: MarketsTableProps) {
         </thead>
         <tbody>
           {tickers.map((row) => (
-            <tr key={row.symbol} className="border-b border-slate-800/80 last:border-0">
-              <td className={`${cellClass} font-bold text-white`}>{row.symbol}</td>
-              <td className={`${cellClass} font-medium text-slate-200`}>{row.value}</td>
+            <tr key={row.symbol} className="border-b border-border/80 last:border-0">
+              <td className={`${cellClass} font-bold text-foreground`}>{row.symbol}</td>
+              <td className={`${cellClass} font-medium text-muted`}>{row.value}</td>
               <td className={`${cellClass} text-right`}>
                 <span
                   className={`inline-block rounded-md px-2.5 py-1 text-xs font-bold ${

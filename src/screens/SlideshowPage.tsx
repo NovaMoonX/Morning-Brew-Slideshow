@@ -35,18 +35,18 @@ export function SlideshowPage() {
 
   if (loading && !issue) {
     return (
-      <div className="flex h-screen w-screen flex-col items-center justify-center bg-slate-950 text-white">
-        <div className="size-12 animate-spin rounded-full border-4 border-slate-800 border-t-sky-500"></div>
-        <p className="mt-4 text-slate-400">Loading issue slide deck...</p>
+      <div className="flex h-screen w-screen flex-col items-center justify-center bg-background text-foreground">
+        <div className="size-12 animate-spin rounded-full border-4 border-border border-t-sky-500"></div>
+        <p className="mt-4 text-muted">Loading issue slide deck...</p>
       </div>
     );
   }
 
   if (error && !issue) {
     return (
-      <div className="flex h-screen w-screen flex-col items-center justify-center bg-slate-950 p-4 text-center text-white">
-        <div className="max-w-md rounded-xl border border-red-900/35 bg-red-950/20 p-6">
-          <h2 className="text-lg font-semibold text-red-400">Error Loading Slides</h2>
+      <div className="flex h-screen w-screen flex-col items-center justify-center bg-background p-4 text-center text-foreground">
+        <div className="max-w-md rounded-xl border border-red-300 bg-red-50 p-6 dark:border-red-900/35 dark:bg-red-950/20">
+          <h2 className="text-lg font-semibold text-red-600 dark:text-red-400">Error Loading Slides</h2>
           <p className="mt-2 text-sm text-red-500">{error}</p>
           <button
             onClick={() => navigate('/')}
@@ -61,9 +61,9 @@ export function SlideshowPage() {
 
   if (!issue || slides.length === 0 || !activeSlide) {
     return (
-      <div className="flex h-screen w-screen flex-col items-center justify-center bg-slate-950 text-center text-white p-4">
+      <div className="flex h-screen w-screen flex-col items-center justify-center bg-background text-center text-foreground p-4">
         <h2 className="text-xl font-bold">No slides found</h2>
-        <p className="mt-2 text-sm text-slate-400">
+        <p className="mt-2 text-sm text-muted">
           The issue for {issueId} is still processing or has no contents.
         </p>
         <button
@@ -77,12 +77,12 @@ export function SlideshowPage() {
   }
 
   return (
-    <div className="min-h-dvh w-full bg-slate-950">
-      <div className="relative mx-auto h-dvh w-full max-w-lg overflow-hidden text-slate-50 select-none">
+    <div className="min-h-dvh w-full bg-background">
+      <div className="relative mx-auto h-dvh w-full max-w-lg overflow-hidden text-foreground select-none">
       {/* Floating Exit Button */}
       <button
         onClick={() => navigate('/')}
-        className="absolute top-4 right-4 z-40 flex items-center justify-center rounded-full bg-slate-900/80 p-3 text-slate-300 shadow-md backdrop-blur-md transition hover:bg-slate-800 hover:text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+        className="absolute top-4 right-4 z-40 flex items-center justify-center rounded-full border border-border bg-surface-glass p-3 text-muted shadow-md backdrop-blur-md transition hover:bg-surface-elevated hover:text-foreground focus:outline-none focus:ring-2 focus:ring-sky-500"
         aria-label="Exit Slideshow"
       >
         <svg

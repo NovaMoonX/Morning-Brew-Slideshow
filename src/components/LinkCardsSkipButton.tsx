@@ -99,7 +99,7 @@ export function LinkCardsSkipButton({
     <button
       type="button"
       onClick={handleSkip}
-      className="pointer-events-auto inline-flex items-center gap-2.5 rounded-full border border-slate-800 bg-slate-900 py-2.5 pl-8 pr-3 text-xs font-bold uppercase tracking-wider text-slate-300 shadow-lg transition hover:text-white"
+      className="pointer-events-auto inline-flex items-center gap-2.5 rounded-full border border-border bg-surface py-2.5 pl-8 pr-3 text-xs font-bold uppercase tracking-wider text-muted shadow-lg transition hover:text-foreground"
     >
       <span>Skip to Next Story</span>
       <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-full bg-sky-600 tabular-nums text-sm font-extrabold leading-none text-white">
