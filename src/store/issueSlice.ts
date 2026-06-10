@@ -39,7 +39,7 @@ function formatIssueLoadError(err: unknown): string {
   if (/permission/i.test(message)) {
     return isProd
       ? 'Unable to connect to the issue library. The app may be misconfigured — please contact the site owner.'
-      : `Firestore permission denied. Confirm .env.local matches project morning-brew-slideshow-052126. (${message})`;
+      : `Firestore permission denied. Confirm .env.local matches this app's Firebase project. (${message})`;
   }
   return message || 'Failed to fetch issues index.';
 }

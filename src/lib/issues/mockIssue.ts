@@ -11,7 +11,7 @@ export const MOCK_ISSUE: BrewIssue = {
     day: 'numeric',
     year: 'numeric',
   }),
-  title: 'Morning Brew Slideshow Demo Issue',
+  title: 'Morning Brew Visualizer Demo Issue',
   subject_line: 'Your AI-powered Morning Brew, in slides',
   primary_image_url: null,
   intro:
@@ -29,7 +29,7 @@ export const MOCK_ISSUE: BrewIssue = {
       type: 'cover',
       section_id: 'cover',
       section_label: 'MORNING BREW',
-      title: 'Morning Brew Slideshow',
+      title: 'Morning Brew Visualizer',
       body: "Swipe through today's demo slideshow while you connect Firebase.",
       image_url: null,
       image_caption: null,
