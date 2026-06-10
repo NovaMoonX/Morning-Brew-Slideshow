@@ -105,7 +105,7 @@ Expect `200` with `Successfully ingested issue YYYY-MM-DD…` or `already exists
 | Symptom | Fix |
 |--------|-----|
 | Request pending / connection refused | Start `npm run dev:ingest` |
-| Ingest succeeds but list stays empty | Confirm Firebase env vars in `.env.local`; check browser console for Firestore errors |
+| Ingest succeeds but list stays empty | Confirm Firebase env vars in `.env.local` match `.firebaserc`; restart `npm run dev:ingest` and check logs show `Firestore project: morning-brew-slideshow-052126` (ADC can point at a different GCP project) |
 | Firestore offline / backend didn't respond | Remove `VITE_USE_FIREBASE_EMULATOR=true` from `.env.local` |
 | Ingest fails at Firestore step | Run `gcloud auth application-default login`, restart `npm run dev:ingest` |
 | `403 Forbidden` on deployed URL | Allow unauthenticated invocations on Cloud Run, or use local `dev:ingest` |

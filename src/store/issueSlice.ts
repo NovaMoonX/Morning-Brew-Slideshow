@@ -1,5 +1,15 @@
 import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { collection, getDocs, query, orderBy, limit } from 'firebase/firestore';
+import {
+  collection,
+  doc,
+  getDocFromServer,
+  getDocsFromServer,
+  query,
+  orderBy,
+  limit,
+  type DocumentData,
+  type QueryDocumentSnapshot,
+} from 'firebase/firestore';
 import { db, isFirebaseConfigured } from '@/firebase';
 import { MOCK_ISSUE } from '@lib/issues/mockIssue';
 import type { BrewIssue } from '@lib/models';
@@ -12,10 +22,54 @@ export interface AvailableIssue {
   status: string;
 }
 
+function docToAvailableIssue(docSnap: QueryDocumentSnapshot<DocumentData>): AvailableIssue {
+  const data = docSnap.data();
+  return {
+    id: docSnap.id,
+    date: (data.date as string) || docSnap.id,
+    title: (data.title as string) || 'Morning Brew',
+    primary_image_url: (data.primary_image_url as string) || null,
+    status: (data.status as string) || 'ready',
+  };
+}
+
+async function loadIssueIndexFromServer(): Promise<AvailableIssue[]> {
+  if (!db) {
+    return [];
+  }
+
+  try {
+    const ordered = query(
+      collection(db, 'issue_index'),
+      orderBy('fetched_at', 'desc'),
+      limit(7)
+    );
+    const snapshot = await getDocsFromServer(ordered);
+    if (!snapshot.empty) {
+      return snapshot.docs.map(docToAvailableIssue);
+    }
+  } catch (err) {
+    console.warn('Ordered issue_index fetch failed, falling back to full collection read.', err);
+  }
+
+  const snapshot = await getDocsFromServer(collection(db, 'issue_index'));
+  return snapshot.docs
+    .map(docToAvailableIssue)
+    .sort((a, b) => b.id.localeCompare(a.id))
+    .slice(0, 7);
+}
+
+export function parseIssueIdFromIngestMessage(message: string): string | null {
+  const match = message.match(/\d{4}-\d{2}-\d{2}/);
+  return match?.[0] ?? null;
+}
+
 interface IssueState {
   activeIssue: BrewIssue | null;
   availableIssues: AvailableIssue[];
-  loading: boolean;
+  listLoading: boolean;
+  issueLoading: boolean;
+  issuesRefreshing: boolean;
   error: string | null;
   isUsingMock: boolean;
   testFetchLoading: boolean;
@@ -27,7 +81,9 @@ interface IssueState {
 const initialState: IssueState = {
   activeIssue: null,
   availableIssues: [],
-  loading: false,
+  listLoading: false,
+  issueLoading: false,
+  issuesRefreshing: false,
   error: null,
   isUsingMock: !isFirebaseConfigured,
   testFetchLoading: false,
@@ -88,7 +144,11 @@ export const testFetchLatest = createAsyncThunk(
 );
 
 // Async Thunk to fetch available issues for the past 7 days
-export const fetchAvailableIssues = createAsyncThunk(
+export const fetchAvailableIssues = createAsyncThunk<
+  AvailableIssue[],
+  { background?: boolean } | void,
+  { rejectValue: string }
+>(
   'issue/fetchAvailableIssues',
   async (_, { rejectWithValue }) => {
     if (!isFirebaseConfigured || !db) {
@@ -120,29 +180,39 @@ export const fetchAvailableIssues = createAsyncThunk(
     }
 
     try {
-      const q = query(
-        collection(db, 'issue_index'),
-        orderBy('fetched_at', 'desc'),
-        limit(7)
-      );
-      const snapshot = await getDocs(q);
-      const issues: AvailableIssue[] = [];
-      snapshot.forEach((doc) => {
-        const data = doc.data();
-        issues.push({
-          id: doc.id,
-          date: data.date || doc.id,
-          title: data.title || 'Morning Brew',
-          primary_image_url: data.primary_image_url || null,
-          status: data.status || 'ready',
-        });
-      });
-      return issues;
+      return await loadIssueIndexFromServer();
     } catch (err) {
       return rejectWithValue((err as Error).message || 'Failed to fetch issues index.');
     }
   }
 );
+
+export const fetchIssueIndexEntry = createAsyncThunk<
+  AvailableIssue | null,
+  string,
+  { rejectValue: string }
+>('issue/fetchIssueIndexEntry', async (issueId, { rejectWithValue }) => {
+  if (!isFirebaseConfigured || !db) {
+    return null;
+  }
+
+  try {
+    const snap = await getDocFromServer(doc(db, 'issue_index', issueId));
+    if (!snap.exists()) {
+      return null;
+    }
+    const data = snap.data();
+    return {
+      id: snap.id,
+      date: (data.date as string) || snap.id,
+      title: (data.title as string) || 'Morning Brew',
+      primary_image_url: (data.primary_image_url as string) || null,
+      status: (data.status as string) || 'ready',
+    };
+  } catch (err) {
+    return rejectWithValue((err as Error).message || 'Failed to fetch issue index entry.');
+  }
+});
 
 const issueSlice = createSlice({
   name: 'issue',
@@ -152,7 +222,7 @@ const issueSlice = createSlice({
       state.activeIssue = action.payload;
     },
     setIssueLoading: (state, action: PayloadAction<boolean>) => {
-      state.loading = action.payload;
+      state.issueLoading = action.payload;
     },
     setIssueError: (state, action: PayloadAction<string | null>) => {
       state.error = action.payload;
@@ -168,20 +238,37 @@ const issueSlice = createSlice({
   },
   extraReducers: (builder) => {
     builder
-      .addCase(fetchAvailableIssues.pending, (state) => {
-        state.loading = true;
+      .addCase(fetchAvailableIssues.pending, (state, action) => {
         state.error = null;
+        if (action.meta.arg?.background) {
+          state.issuesRefreshing = true;
+        } else {
+          state.listLoading = true;
+        }
       })
       .addCase(
         fetchAvailableIssues.fulfilled,
         (state, action: PayloadAction<AvailableIssue[]>) => {
           state.availableIssues = action.payload;
-          state.loading = false;
+          state.listLoading = false;
+          state.issuesRefreshing = false;
         }
       )
       .addCase(fetchAvailableIssues.rejected, (state, action) => {
         state.error = (action.payload as string) || 'Could not fetch issues list.';
-        state.loading = false;
+        state.listLoading = false;
+        state.issuesRefreshing = false;
+      })
+      .addCase(fetchIssueIndexEntry.fulfilled, (state, action) => {
+        const entry = action.payload;
+        if (!entry) {
+          return;
+        }
+        const without = state.availableIssues.filter((issue) => issue.id !== entry.id);
+        state.availableIssues = [entry, ...without]
+          .sort((a, b) => b.id.localeCompare(a.id))
+          .slice(0, 7);
+        state.issuesRefreshing = false;
       })
       .addCase(testFetchLatest.pending, (state) => {
         state.testFetchLoading = true;

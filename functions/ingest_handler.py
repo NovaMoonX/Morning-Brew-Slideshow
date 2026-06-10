@@ -1,7 +1,7 @@
 from datetime import datetime
 
 import http_client
-from firebase_db import get_db
+from firebase_db import PROJECT_ID, get_db
 from parser import MorningBrewParser
 from slide_builder import SlideBuilder
 
@@ -25,6 +25,7 @@ def handle_ingest_issue(req) -> tuple[str, int]:
         url = f"{ARCHIVE_BASE_URL}/issues/{date_param}"
 
     try:
+        _log(f"Firestore project: {PROJECT_ID}")
         _log(f"Fetching newsletter from {url}")
         response = http_client.get(url, timeout=15)
         if response.status_code != 200:

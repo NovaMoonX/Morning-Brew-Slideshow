@@ -1,7 +1,7 @@
 import { useEffect, useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '@store/index';
-import { fetchAvailableIssues, testFetchLatest, clearTestFetch } from '@store/issueSlice';
+import { fetchAvailableIssues, testFetchLatest, clearTestFetch, fetchIssueIndexEntry, parseIssueIdFromIngestMessage } from '@store/issueSlice';
 import { APP_TITLE, APP_DESCRIPTION } from '@lib/app';
 
 function DevTestFetchPanel({
@@ -81,7 +81,7 @@ function DevTestFetchPanel({
 export function Home() {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
-  const { availableIssues, loading, error, testFetchLoading, testFetchError, testFetchComplete, testFetchMessage } =
+  const { availableIssues, listLoading, issuesRefreshing, error, testFetchLoading, testFetchError, testFetchComplete, testFetchMessage } =
     useAppSelector((state) => state.issue);
 
   useEffect(() => {
@@ -92,14 +92,18 @@ export function Home() {
     dispatch(clearTestFetch());
     const result = await dispatch(testFetchLatest());
     if (testFetchLatest.fulfilled.match(result)) {
-      dispatch(fetchAvailableIssues());
+      const issueId = parseIssueIdFromIngestMessage(result.payload);
+      if (issueId) {
+        await dispatch(fetchIssueIndexEntry(issueId));
+      }
+      await dispatch(fetchAvailableIssues({ background: true }));
     }
   }, [dispatch]);
 
   const latestIssue = availableIssues[0];
   const pastIssues = availableIssues.slice(1);
 
-  if (loading && availableIssues.length === 0) {
+  if (listLoading && availableIssues.length === 0) {
     return (
       <div className="flex h-screen w-screen flex-col items-center justify-center p-4">
         <div className="size-12 animate-spin rounded-full border-4 border-slate-300 border-t-sky-500"></div>
@@ -154,7 +158,7 @@ export function Home() {
         </header>
 
         {/* Empty state when no issues are loaded */}
-        {!loading && availableIssues.length === 0 && !error && (
+        {!listLoading && availableIssues.length === 0 && !error && !issuesRefreshing && (
           <section className="flex flex-col items-center justify-center py-24 text-center">
             <div className="text-5xl mb-4">☕</div>
             <h2 className="text-xl font-bold text-slate-700 dark:text-slate-300">No issues loaded yet</h2>
@@ -173,6 +177,15 @@ export function Home() {
                 />
               </div>
             )}
+          </section>
+        )}
+
+        {issuesRefreshing && availableIssues.length === 0 && (
+          <section className="flex flex-col items-center justify-center py-16 text-center">
+            <div className="size-10 animate-spin rounded-full border-4 border-slate-300 border-t-sky-500" />
+            <p className="mt-4 text-sm text-slate-500 dark:text-slate-400">
+              Loading issues from Firestore…
+            </p>
           </section>
         )}
 

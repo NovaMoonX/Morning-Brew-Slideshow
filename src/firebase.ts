@@ -1,5 +1,5 @@
 import { initializeApp } from 'firebase/app';
-import { getFirestore } from 'firebase/firestore';
+import { enableNetwork, getFirestore } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 
 const firebaseConfig = {
@@ -28,3 +28,7 @@ const app = isFirebaseConfigured ? initializeApp(firebaseConfig) : null;
 
 export const db = app ? getFirestore(app) : null;
 export const storage = app ? getStorage(app) : null;
+
+if (db) {
+  void enableNetwork(db);
+}

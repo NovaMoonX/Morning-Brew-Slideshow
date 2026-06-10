@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, getDocFromServer, onSnapshot } from 'firebase/firestore';
 import { db, isFirebaseConfigured } from '@/firebase';
 import { MOCK_ISSUE } from '@lib/issues/mockIssue';
 import { normalizeIssue } from '@lib/issues/issue.utils';
@@ -21,7 +21,7 @@ interface UseIssueState {
 
 export function useIssue(issueId: string): UseIssueState {
   const dispatch = useAppDispatch();
-  const { activeIssue, loading, error, isUsingMock } = useAppSelector((state) => state.issue);
+  const { activeIssue, issueLoading, error, isUsingMock } = useAppSelector((state) => state.issue);
 
   useEffect(() => {
     if (!issueId) {
@@ -44,19 +44,34 @@ export function useIssue(issueId: string): UseIssueState {
     dispatch(setUsingMock(false));
 
     const issueRef = doc(db, 'issues', issueId);
+
+    const applySnapshot = (exists: boolean, data: unknown) => {
+      dispatch(setIssueError(null));
+      if (!exists) {
+        dispatch(setActiveIssue(null));
+        dispatch(setIssueLoading(false));
+        return;
+      }
+
+      const normalized = normalizeIssue(data, issueId);
+      dispatch(setActiveIssue(normalized));
+      dispatch(setIssueLoading(false));
+    };
+
+    void getDocFromServer(issueRef)
+      .then((snapshot) => {
+        applySnapshot(snapshot.exists(), snapshot.exists() ? snapshot.data() : null);
+      })
+      .catch((readError: Error) => {
+        dispatch(setIssueError(readError.message || 'Unable to read issue data.'));
+        dispatch(setActiveIssue(null));
+        dispatch(setIssueLoading(false));
+      });
+
     const unsubscribe = onSnapshot(
       issueRef,
       (snapshot) => {
-        dispatch(setIssueError(null));
-        if (!snapshot.exists()) {
-          dispatch(setActiveIssue(null));
-          dispatch(setIssueLoading(false));
-          return;
-        }
-
-        const normalized = normalizeIssue(snapshot.data(), issueId);
-        dispatch(setActiveIssue(normalized));
-        dispatch(setIssueLoading(false));
+        applySnapshot(snapshot.exists(), snapshot.exists() ? snapshot.data() : null);
       },
       (readError) => {
         const message = readError.message || 'Unable to read issue data.';
@@ -73,7 +88,7 @@ export function useIssue(issueId: string): UseIssueState {
 
   return {
     issue: activeIssue,
-    loading,
+    loading: issueLoading,
     error,
     isUsingMock,
   };

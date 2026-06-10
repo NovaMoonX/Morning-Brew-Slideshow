@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host",
-    "dev:ingest": "cd functions && ./venv/bin/functions-framework --target=ingest_issue --source=dev_server.py --port=8787 --debug",
+    "dev:ingest": "cd functions && GCLOUD_PROJECT=morning-brew-slideshow-052126 ./venv/bin/functions-framework --target=ingest_issue --source=dev_server.py --port=8787 --debug",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",

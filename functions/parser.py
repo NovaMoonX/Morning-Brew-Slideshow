@@ -34,7 +34,7 @@ class MorningBrewParser:
         date_raw = issue_data.get('date') or date_str or datetime.utcnow().strftime('%Y-%m-%d')
         issue_id = self._normalize_issue_id(date_raw)
         subject_line = issue_data.get('subjectLine') or "Morning Brew Newsletter"
-        title = issue_data.get('title') or "Morning Brew"
+        title = issue_data.get('title') or subject_line or "Morning Brew"
         
         # Primary cover image URL from next data or meta fallback
         primary_image = None
