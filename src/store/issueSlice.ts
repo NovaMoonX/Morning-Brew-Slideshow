@@ -34,6 +34,16 @@ function docToAvailableIssue(docSnap: QueryDocumentSnapshot<DocumentData>): Avai
   };
 }
 
+function formatIssueLoadError(err: unknown): string {
+  const message = err instanceof Error ? err.message : String(err);
+  if (/permission/i.test(message)) {
+    return isProd
+      ? 'Unable to connect to the issue library. The app may be misconfigured — please contact the site owner.'
+      : `Firestore permission denied. Confirm .env.local matches this app's Firebase project. (${message})`;
+  }
+  return message || 'Failed to fetch issues index.';
+}
+
 async function loadIssueIndexFromServer(): Promise<AvailableIssue[]> {
   if (!db) {
     return [];
@@ -190,7 +200,7 @@ export const fetchAvailableIssues = createAsyncThunk<
     try {
       return await loadIssueIndexFromServer();
     } catch (err) {
-      return rejectWithValue((err as Error).message || 'Failed to fetch issues index.');
+      return rejectWithValue(formatIssueLoadError(err));
     }
   }
 );

@@ -1,4 +1,4 @@
-# Morning Brew Slideshow
+# Morning Brew Visualizer
 
 Mobile-first React PWA for reading Morning Brew issues as an interactive slideshow with progressive enhancement:
 
