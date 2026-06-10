@@ -55,8 +55,8 @@ export function MarketsTable({ tickers, compact = false }: MarketsTableProps) {
   const headerClass = compact ? 'px-3 py-2.5 text-[10px]' : 'px-4 py-3 text-xs';
 
   return (
-    <div className="flex h-full w-full flex-col overflow-hidden rounded-2xl border border-border bg-surface-glass">
-      <table className={`h-full w-full table-fixed ${textClass}`}>
+    <div className="w-full overflow-hidden rounded-2xl border border-border bg-surface-glass">
+      <table className={`w-full table-fixed ${textClass}`}>
         <thead>
           <tr className="border-b border-border text-left uppercase tracking-wider text-muted-soft">
             <th className={`${headerClass} w-[28%] font-semibold`}>Ticker</th>

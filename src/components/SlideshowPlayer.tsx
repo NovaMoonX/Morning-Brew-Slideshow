@@ -63,7 +63,7 @@ function SectionHeader({
 }) {
   const boxClass = inline
     ? 'rounded-xl border border-border bg-surface px-4 py-3 shadow-lg'
-    : 'rounded-xl border border-border bg-surface-glass px-4 py-3 shadow-lg backdrop-blur-md';
+    : 'rounded-xl border border-border bg-surface px-4 py-3 shadow-lg';
 
   const box = (
     <div className={boxClass}>
@@ -103,15 +103,15 @@ function SplitMarketsLayout({ slide }: { slide: Slide }) {
   );
 
   return (
-    <div className="absolute inset-0 grid w-full grid-cols-1 grid-rows-[minmax(0,54%)_minmax(0,46%)] gap-y-4 bg-background">
-      <div className="flex min-h-0 w-full flex-col gap-2 overflow-hidden px-4 pb-0 pt-20 md:px-10 md:pt-[4.5rem]">
+    <div className="absolute inset-0 flex w-full flex-col bg-background">
+      <div className="shrink-0 px-4 pb-3 pt-20 md:px-10 md:pt-[4.5rem]">
         <SectionHeader label="MARKETS" title={null} inline />
-        <div className="flex w-full min-h-0 flex-1 items-stretch">
-          <MarketsTable tickers={tickers} />
+        <div className="mt-2 max-h-[42vh] overflow-y-auto overscroll-contain">
+          <MarketsTable tickers={tickers} compact />
         </div>
       </div>
 
-      <div className="flex min-h-0 w-full flex-col overflow-y-auto px-6 pb-36 pt-2 md:px-10 md:pb-40">
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-6 pb-36 pt-1 md:px-10 md:pb-40">
         <div className="mx-auto w-full max-w-xl">
           {commentaryHtml ? (
             <SlideBody slide={commentarySlide} className="text-sm md:text-base" />
