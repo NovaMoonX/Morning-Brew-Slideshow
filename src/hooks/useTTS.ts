@@ -3,6 +3,8 @@ import { useAppDispatch, useAppSelector } from '@store/index';
 import { nextSlide } from '@store/slideshowSlice';
 import { speakableText } from '@components/SlideBody';
 import type { Slide } from '@lib/models';
+import { estimateDurationMs, MIN_READ_DURATION_MS } from '@lib/slideshow/timing';
+import { showsTopSlideCountdown } from '@lib/slideshow/slideCountdown';
 
 interface UseTTSProps {
   slide: Slide | null;
@@ -10,8 +12,6 @@ interface UseTTSProps {
   mainLastIndex: number;
   isAudioReady: boolean;
 }
-
-import { estimateDurationMs, MIN_READ_DURATION_MS } from '@lib/slideshow/timing';
 
 export function useTTS({ slide, totalSlides, mainLastIndex }: UseTTSProps) {
   const dispatch = useAppDispatch();
@@ -21,13 +21,15 @@ export function useTTS({ slide, totalSlides, mainLastIndex }: UseTTSProps) {
 
   const [activeMode, setActiveMode] = useState<'idle' | 'kokoro' | 'browser'>('idle');
   const [error, setError] = useState<string | null>(null);
+  const [secondsRemaining, setSecondsRemaining] = useState<number | null>(null);
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
-  const lastSpeechTextRef = useRef<string | null>(null);
   const slideIdRef = useRef<string | null>(null);
   const timerRef = useRef<number | null>(null);
-  const prevMutedRef = useRef(isMuted);
+  const countdownDeadlineRef = useRef<number | null>(null);
+  const pausedForMuteRef = useRef(false);
+  const frozenSecondsRef = useRef<number | null>(null);
 
   const clearTimer = useCallback(() => {
     if (timerRef.current !== null) {
@@ -36,8 +38,20 @@ export function useTTS({ slide, totalSlides, mainLastIndex }: UseTTSProps) {
     }
   }, []);
 
+  const clearCountdown = useCallback(() => {
+    countdownDeadlineRef.current = null;
+    frozenSecondsRef.current = null;
+    setSecondsRemaining(null);
+  }, []);
+
+  const setCountdownDeadline = useCallback((durationMs: number) => {
+    countdownDeadlineRef.current = Date.now() + Math.max(0, durationMs);
+    frozenSecondsRef.current = null;
+  }, []);
+
   const stopAllPlayback = useCallback(() => {
     clearTimer();
+    clearCountdown();
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current = null;
@@ -46,9 +60,9 @@ export function useTTS({ slide, totalSlides, mainLastIndex }: UseTTSProps) {
       window.speechSynthesis.cancel();
     }
     utteranceRef.current = null;
-    lastSpeechTextRef.current = null;
+    pausedForMuteRef.current = false;
     setActiveMode('idle');
-  }, [clearTimer]);
+  }, [clearTimer, clearCountdown]);
 
   const advanceSlide = useCallback(() => {
     dispatch(nextSlide({ totalSlides, mainLastIndex }));
@@ -57,13 +71,14 @@ export function useTTS({ slide, totalSlides, mainLastIndex }: UseTTSProps) {
   const scheduleAdvance = useCallback(
     (delayMs: number) => {
       clearTimer();
+      setCountdownDeadline(delayMs);
       timerRef.current = window.setTimeout(() => {
         timerRef.current = null;
         stopAllPlayback();
         advanceSlide();
       }, delayMs);
     },
-    [advanceSlide, clearTimer, stopAllPlayback]
+    [advanceSlide, clearTimer, setCountdownDeadline, stopAllPlayback]
   );
 
   const startBrowserUtterance = useCallback(
@@ -74,7 +89,7 @@ export function useTTS({ slide, totalSlides, mainLastIndex }: UseTTSProps) {
         return;
       }
 
-      lastSpeechTextRef.current = text;
+      setCountdownDeadline(estimateDurationMs(text));
 
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = 'en-US';
@@ -96,14 +111,14 @@ export function useTTS({ slide, totalSlides, mainLastIndex }: UseTTSProps) {
       utteranceRef.current = utterance;
       window.speechSynthesis.speak(utterance);
     },
-    [isMuted, scheduleAdvance, stopAllPlayback, advanceSlide],
+    [isMuted, scheduleAdvance, stopAllPlayback, advanceSlide, setCountdownDeadline]
   );
 
   const playBrowserSpeech = useCallback(
     (text: string) => {
       startBrowserUtterance(text);
     },
-    [startBrowserUtterance],
+    [startBrowserUtterance]
   );
 
   const playSlideAudio = useCallback(() => {
@@ -119,12 +134,14 @@ export function useTTS({ slide, totalSlides, mainLastIndex }: UseTTSProps) {
     const text = speakableText(activeSlide);
 
     if (activeSlide.type === 'link_cards') {
-      // LinkCardsSkipButton owns auto-advance timing for link card slides.
       return;
     }
 
-    if (activeSlide.type === 'section_hero' || activeSlide.type === 'end' || activeSlide.type === 'extras_hub') {
-      // Hero countdown and terminal slides do not auto-advance.
+    if (
+      activeSlide.type === 'section_hero' ||
+      activeSlide.type === 'end' ||
+      activeSlide.type === 'extras_hub'
+    ) {
       return;
     }
 
@@ -138,6 +155,13 @@ export function useTTS({ slide, totalSlides, mainLastIndex }: UseTTSProps) {
       audio.muted = isMuted;
       audioRef.current = audio;
       setActiveMode('kokoro');
+
+      audio.onloadedmetadata = () => {
+        const remainingMs = Math.max(0, (audio.duration - audio.currentTime) * 1000);
+        if (Number.isFinite(remainingMs) && remainingMs > 0) {
+          setCountdownDeadline(remainingMs);
+        }
+      };
 
       audio.onended = () => {
         stopAllPlayback();
@@ -164,6 +188,7 @@ export function useTTS({ slide, totalSlides, mainLastIndex }: UseTTSProps) {
     advanceSlide,
     playBrowserSpeech,
     scheduleAdvance,
+    setCountdownDeadline,
   ]);
 
   useEffect(() => {
@@ -182,7 +207,13 @@ export function useTTS({ slide, totalSlides, mainLastIndex }: UseTTSProps) {
   }, [slide, isPlaying, playSlideAudio, stopAllPlayback]);
 
   useEffect(() => {
-    if (!slide || slide.type === 'link_cards' || slide.type === 'section_hero' || slide.type === 'end' || slide.type === 'extras_hub') {
+    if (
+      !slide ||
+      slide.type === 'link_cards' ||
+      slide.type === 'section_hero' ||
+      slide.type === 'end' ||
+      slide.type === 'extras_hub'
+    ) {
       return;
     }
 
@@ -190,6 +221,7 @@ export function useTTS({ slide, totalSlides, mainLastIndex }: UseTTSProps) {
       playSlideAudio();
     } else if (!isPlaying) {
       clearTimer();
+      pausedForMuteRef.current = false;
       if (activeMode === 'kokoro' && audioRef.current) {
         audioRef.current.pause();
       } else if (
@@ -205,38 +237,49 @@ export function useTTS({ slide, totalSlides, mainLastIndex }: UseTTSProps) {
       } else if (
         activeMode === 'browser' &&
         typeof window !== 'undefined' &&
-        window.speechSynthesis.paused
+        window.speechSynthesis.paused &&
+        !isMuted &&
+        !pausedForMuteRef.current
       ) {
         window.speechSynthesis.resume();
       }
     }
-  }, [isPlaying, slide, activeMode, playSlideAudio]);
+  }, [isPlaying, isMuted, slide, activeMode, playSlideAudio, clearTimer]);
 
   useEffect(() => {
     if (audioRef.current) {
       audioRef.current.muted = isMuted;
     }
-  }, [isMuted]);
 
-  useEffect(() => {
-    if (prevMutedRef.current === isMuted) {
-      return;
-    }
-    prevMutedRef.current = isMuted;
-
-    if (
-      activeMode !== 'browser' ||
-      !isPlaying ||
-      !lastSpeechTextRef.current ||
-      typeof window === 'undefined' ||
-      !window.speechSynthesis
-    ) {
+    if (typeof window === 'undefined' || !window.speechSynthesis) {
       return;
     }
 
-    window.speechSynthesis.cancel();
-    startBrowserUtterance(lastSpeechTextRef.current);
-  }, [isMuted, activeMode, isPlaying, startBrowserUtterance]);
+    if (activeMode !== 'browser' || !isPlaying) {
+      if (!isMuted) {
+        pausedForMuteRef.current = false;
+        frozenSecondsRef.current = null;
+      }
+      return;
+    }
+
+    if (isMuted) {
+      if (window.speechSynthesis.speaking && !window.speechSynthesis.paused) {
+        window.speechSynthesis.pause();
+        pausedForMuteRef.current = true;
+
+        const deadline = countdownDeadlineRef.current;
+        if (deadline !== null) {
+          const remainingMs = Math.max(0, deadline - Date.now());
+          frozenSecondsRef.current = remainingMs === 0 ? 0 : Math.ceil(remainingMs / 1000);
+        }
+      }
+    } else if (pausedForMuteRef.current && window.speechSynthesis.paused) {
+      window.speechSynthesis.resume();
+      pausedForMuteRef.current = false;
+      frozenSecondsRef.current = null;
+    }
+  }, [isMuted, activeMode, isPlaying]);
 
   useEffect(() => {
     if (
@@ -251,6 +294,40 @@ export function useTTS({ slide, totalSlides, mainLastIndex }: UseTTSProps) {
   }, [slide?.audio_url, isPlaying, activeMode, preferKokoroAudio, playSlideAudio, stopAllPlayback]);
 
   useEffect(() => {
+    if (!isPlaying || !slide || !showsTopSlideCountdown(slide.type)) {
+      setSecondsRemaining(null);
+      return;
+    }
+
+    const tick = () => {
+      if (pausedForMuteRef.current && frozenSecondsRef.current !== null) {
+        setSecondsRemaining(frozenSecondsRef.current);
+        return;
+      }
+
+      if (activeMode === 'kokoro' && audioRef.current && Number.isFinite(audioRef.current.duration)) {
+        const remainingSec = audioRef.current.duration - audioRef.current.currentTime;
+        const display = remainingSec <= 0 ? 0 : Math.ceil(remainingSec);
+        setSecondsRemaining(display);
+        return;
+      }
+
+      const deadline = countdownDeadlineRef.current;
+      if (deadline !== null) {
+        const remainingMs = Math.max(0, deadline - Date.now());
+        setSecondsRemaining(remainingMs === 0 ? 0 : Math.ceil(remainingMs / 1000));
+        return;
+      }
+
+      setSecondsRemaining(null);
+    };
+
+    tick();
+    const intervalId = window.setInterval(tick, 100);
+    return () => window.clearInterval(intervalId);
+  }, [isPlaying, slide, activeMode]);
+
+  useEffect(() => {
     return () => {
       stopAllPlayback();
     };
@@ -261,6 +338,7 @@ export function useTTS({ slide, totalSlides, mainLastIndex }: UseTTSProps) {
     isMuted,
     activeMode,
     error,
+    secondsRemaining,
     stop: stopAllPlayback,
   };
 }

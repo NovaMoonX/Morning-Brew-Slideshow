@@ -1,29 +1,22 @@
 import { useAppDispatch, useAppSelector } from '@store/index';
 import { togglePlay, toggleMute, toggleAudioMode } from '@store/slideshowSlice';
-import { useTTS } from '@hooks/useTTS';
 import { isDev } from '@lib/app/env';
 import { PlayIcon, PauseIcon, SpeakerWaveIcon, SpeakerXMarkIcon } from '@components/AudioIcons';
 import type { Slide } from '@lib/models';
 
 interface TTSEngineProps {
   slide: Slide | null;
-  totalSlides: number;
-  mainLastIndex: number;
-  isAudioReady: boolean;
+  activeMode: 'idle' | 'kokoro' | 'browser';
   onOpenTableOfContents?: () => void;
 }
 
 export function TTSEngine({
   slide,
-  totalSlides,
-  mainLastIndex,
-  isAudioReady,
+  activeMode,
   onOpenTableOfContents,
 }: TTSEngineProps) {
   const dispatch = useAppDispatch();
   const { isPlaying, isMuted, preferKokoroAudio } = useAppSelector((state) => state.slideshow);
-
-  const { activeMode } = useTTS({ slide, totalSlides, mainLastIndex, isAudioReady });
 
   if (
     !slide ||
