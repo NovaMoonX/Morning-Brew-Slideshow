@@ -24,8 +24,10 @@ export function useTTS({ slide, totalSlides, mainLastIndex }: UseTTSProps) {
 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
+  const lastSpeechTextRef = useRef<string | null>(null);
   const slideIdRef = useRef<string | null>(null);
   const timerRef = useRef<number | null>(null);
+  const prevMutedRef = useRef(isMuted);
 
   const clearTimer = useCallback(() => {
     if (timerRef.current !== null) {
@@ -44,6 +46,7 @@ export function useTTS({ slide, totalSlides, mainLastIndex }: UseTTSProps) {
       window.speechSynthesis.cancel();
     }
     utteranceRef.current = null;
+    lastSpeechTextRef.current = null;
     setActiveMode('idle');
   }, [clearTimer]);
 
@@ -63,13 +66,15 @@ export function useTTS({ slide, totalSlides, mainLastIndex }: UseTTSProps) {
     [advanceSlide, clearTimer, stopAllPlayback]
   );
 
-  const playBrowserSpeech = useCallback(
+  const startBrowserUtterance = useCallback(
     (text: string) => {
       if (typeof window === 'undefined' || !window.speechSynthesis) {
         setError('Browser text-to-speech is unsupported.');
         scheduleAdvance(estimateDurationMs(text));
         return;
       }
+
+      lastSpeechTextRef.current = text;
 
       const utterance = new SpeechSynthesisUtterance(text);
       utterance.lang = 'en-US';
@@ -91,7 +96,14 @@ export function useTTS({ slide, totalSlides, mainLastIndex }: UseTTSProps) {
       utteranceRef.current = utterance;
       window.speechSynthesis.speak(utterance);
     },
-    [isMuted, scheduleAdvance, stopAllPlayback, advanceSlide]
+    [isMuted, scheduleAdvance, stopAllPlayback, advanceSlide],
+  );
+
+  const playBrowserSpeech = useCallback(
+    (text: string) => {
+      startBrowserUtterance(text);
+    },
+    [startBrowserUtterance],
   );
 
   const playSlideAudio = useCallback(() => {
@@ -205,6 +217,26 @@ export function useTTS({ slide, totalSlides, mainLastIndex }: UseTTSProps) {
       audioRef.current.muted = isMuted;
     }
   }, [isMuted]);
+
+  useEffect(() => {
+    if (prevMutedRef.current === isMuted) {
+      return;
+    }
+    prevMutedRef.current = isMuted;
+
+    if (
+      activeMode !== 'browser' ||
+      !isPlaying ||
+      !lastSpeechTextRef.current ||
+      typeof window === 'undefined' ||
+      !window.speechSynthesis
+    ) {
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+    startBrowserUtterance(lastSpeechTextRef.current);
+  }, [isMuted, activeMode, isPlaying, startBrowserUtterance]);
 
   useEffect(() => {
     if (

@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useAppDispatch } from '@store/index';
-import { nextSlide, prevSlide, togglePlay } from '@store/slideshowSlice';
+import { useAppDispatch, useAppSelector } from '@store/index';
+import { nextSlide, prevSlide, togglePlay, toggleMute } from '@store/slideshowSlice';
 import type { Slide } from '@lib/models';
 import { SlideBody } from '@components/SlideBody';
+import { PlayIcon, PauseIcon, SpeakerWaveIcon, SpeakerXMarkIcon } from '@components/AudioIcons';
 import { SlideLinkList, filterSectionBodyLinks } from '@components/SlideLinkList';
 import { LinkExplorer } from '@components/LinkExplorer';
 import { LinkCardsSkipButton } from '@components/LinkCardsSkipButton';
@@ -184,6 +185,8 @@ export function SlideshowPlayer({
   onExit,
 }: SlideshowPlayerProps) {
   const dispatch = useAppDispatch();
+  const isPlaying = useAppSelector((state) => state.slideshow.isPlaying);
+  const isMuted = useAppSelector((state) => state.slideshow.isMuted);
   const percentage = totalSlides > 0 ? ((currentIndex + 1) / totalSlides) * 100 : 0;
   const mainLastIndex = useMemo(() => getMainDeckLastIndex(slides), [slides]);
 
@@ -502,9 +505,7 @@ export function SlideshowPlayer({
                   {slide.title}
                 </h1>
                 <div className="mx-auto h-0.5 w-12 bg-sky-500" />
-                <p className="text-sm font-medium text-muted">
-                  Tap right to begin • Press play for audio
-                </p>
+                <p className="text-sm font-medium text-muted">Tap right to begin</p>
                 {onOpenTableOfContents && (
                   <button
                     type="button"
@@ -531,6 +532,44 @@ export function SlideshowPlayer({
                     Table of Contents
                   </button>
                 )}
+                <div className="flex w-full justify-center pt-2">
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      dispatch(togglePlay());
+                    }}
+                    className="pointer-events-auto inline-flex size-16 items-center justify-center rounded-full bg-sky-600 text-white shadow-xl shadow-sky-600/25 transition hover:bg-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-2 focus:ring-offset-background"
+                    aria-label={isPlaying ? 'Pause' : 'Play'}
+                  >
+                    {isPlaying ? (
+                      <PauseIcon className="size-7" />
+                    ) : (
+                      <PlayIcon className="size-7 ml-0.5" />
+                    )}
+                  </button>
+                </div>
+                <button
+                  type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    dispatch(toggleMute());
+                  }}
+                  className={`pointer-events-auto mx-auto inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-wider transition focus:outline-none focus:ring-2 focus:ring-sky-500 ${
+                    isMuted
+                      ? 'bg-rose-500/15 text-rose-500 hover:bg-rose-500/25 dark:text-rose-400'
+                      : 'text-muted hover:bg-surface-elevated hover:text-foreground'
+                  }`}
+                  aria-label={isMuted ? 'Unmute' : 'Mute'}
+                  aria-pressed={isMuted}
+                >
+                  {isMuted ? (
+                    <SpeakerXMarkIcon className="size-4" />
+                  ) : (
+                    <SpeakerWaveIcon className="size-4" />
+                  )}
+                  {isMuted ? 'Unmute' : 'Mute'}
+                </button>
               </div>
             )}
 
