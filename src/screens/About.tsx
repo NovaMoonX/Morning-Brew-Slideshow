@@ -6,7 +6,7 @@ function About() {
       <div className="max-w-2xl space-y-6 px-4 text-center">
         <h1 className="text-4xl font-extrabold tracking-tight md:text-5xl">About Morning Brew Slideshow</h1>
         <p className="text-slate-600 dark:text-slate-400 text-lg md:text-xl font-light">
-          This is the about page, lazy loaded to ensure fast, top-tier performance benchmarks.
+          A mobile-first way to read Morning Brew as an interactive slideshow, with optional listen-along audio.
         </p>
         <div className="pt-4">
           <Link

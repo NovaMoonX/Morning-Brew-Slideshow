@@ -2,7 +2,8 @@ import { useEffect, useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '@store/index';
 import { fetchAvailableIssues, testFetchLatest, clearTestFetch, fetchIssueIndexEntry, parseIssueIdFromIngestMessage } from '@store/issueSlice';
-import { APP_TITLE, APP_DESCRIPTION } from '@lib/app';
+import { APP_TITLE, APP_DESCRIPTION, isDev } from '@lib/app';
+import { issueHeroBadge, issueCardBadge } from '@lib/issues/issueStatus';
 
 function DevTestFetchPanel({
   loading,
@@ -102,6 +103,7 @@ export function Home() {
 
   const latestIssue = availableIssues[0];
   const pastIssues = availableIssues.slice(1);
+  const latestHeroBadge = latestIssue ? issueHeroBadge(latestIssue.status) : null;
 
   if (listLoading && availableIssues.length === 0) {
     return (
@@ -143,7 +145,7 @@ export function Home() {
               {APP_DESCRIPTION}
             </p>
           </div>
-          {import.meta.env.DEV && (
+          {isDev && (
             <div className="mt-6 md:mt-0">
               <DevTestFetchPanel
                 loading={testFetchLoading}
@@ -165,7 +167,7 @@ export function Home() {
             <p className="mt-2 text-sm text-slate-500 dark:text-slate-400 max-w-xs">
               Issues are ingested automatically each morning. Check back after 6am ET.
             </p>
-            {import.meta.env.DEV && (
+            {isDev && (
               <div className="mt-6">
                 <DevTestFetchPanel
                   loading={testFetchLoading}
@@ -212,10 +214,12 @@ export function Home() {
 
               {/* Cover Details Text */}
               <div className="absolute bottom-0 left-0 right-0 p-6 md:p-8 text-white">
-                <span className="inline-block rounded-full bg-sky-500 px-3 py-1 text-xs font-bold uppercase tracking-wide text-white">
-                  {latestIssue.status === 'audio_ready' ? 'Audio Ready' : latestIssue.status === 'enriched' ? 'Enriched' : 'Ready'}
-                </span>
-                <h3 className="mt-3 text-2xl font-bold tracking-tight md:text-3xl line-clamp-2">
+                {latestHeroBadge && (
+                  <span className="inline-block rounded-full bg-sky-500 px-3 py-1 text-xs font-bold uppercase tracking-wide text-white">
+                    {latestHeroBadge}
+                  </span>
+                )}
+                <h3 className={`font-bold tracking-tight md:text-3xl line-clamp-2 ${latestHeroBadge ? 'mt-3' : ''} text-2xl`}>
                   {latestIssue.title}
                 </h3>
                 <p className="mt-2 text-sm text-slate-300 font-medium">
@@ -260,7 +264,7 @@ export function Home() {
                       </h4>
                     </div>
                     <span className="text-[10px] uppercase font-bold tracking-wider text-slate-400">
-                      {issue.status === 'audio_ready' ? 'Audio available' : 'slides only'}
+                      {issueCardBadge(issue.status)}
                     </span>
                   </div>
                 </div>

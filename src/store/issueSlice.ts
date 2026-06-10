@@ -11,6 +11,7 @@ import {
   type QueryDocumentSnapshot,
 } from 'firebase/firestore';
 import { db, isFirebaseConfigured } from '@/firebase';
+import { isDev, isProd } from '@lib/app/env';
 import { MOCK_ISSUE } from '@lib/issues/mockIssue';
 import type { BrewIssue } from '@lib/models';
 
@@ -49,7 +50,9 @@ async function loadIssueIndexFromServer(): Promise<AvailableIssue[]> {
       return snapshot.docs.map(docToAvailableIssue);
     }
   } catch (err) {
-    console.warn('Ordered issue_index fetch failed, falling back to full collection read.', err);
+    if (isDev) {
+      console.warn('Ordered issue_index fetch failed, falling back to full collection read.', err);
+    }
   }
 
   const snapshot = await getDocsFromServer(collection(db, 'issue_index'));
@@ -93,7 +96,7 @@ const initialState: IssueState = {
 };
 
 // Dev-only: calls ingest_issue via functions-framework (npm run dev:ingest).
-const INGEST_FUNCTION_URL = import.meta.env.DEV
+const INGEST_FUNCTION_URL = isDev
   ? 'http://127.0.0.1:8787'
   : (import.meta.env.VITE_INGEST_FUNCTION_URL as string | undefined);
 
@@ -116,7 +119,7 @@ export const testFetchLatest = createAsyncThunk(
       if (!res.ok) {
         if (res.status === 403) {
           return rejectWithValue(
-            import.meta.env.DEV
+            isDev
               ? 'Ingest returned 403. Start the local server with npm run dev:ingest.'
               : 'Ingest returned 403. The Cloud Run service requires authentication — allow unauthenticated invocations in the Google Cloud Console.'
           );
@@ -152,7 +155,12 @@ export const fetchAvailableIssues = createAsyncThunk<
   'issue/fetchAvailableIssues',
   async (_, { rejectWithValue }) => {
     if (!isFirebaseConfigured || !db) {
-      // Return a mock issue index if Firebase is not configured
+      if (isProd) {
+        return rejectWithValue(
+          'Unable to load issues. Firebase is not configured for this build.',
+        );
+      }
+      // Local dev fallback when .env.local is missing
       const mockIndex: AvailableIssue[] = [
         {
           id: MOCK_ISSUE.id,

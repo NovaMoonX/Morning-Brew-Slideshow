@@ -1,6 +1,7 @@
 import { useAppDispatch, useAppSelector } from '@store/index';
 import { togglePlay, toggleMute, toggleAudioMode } from '@store/slideshowSlice';
 import { useTTS } from '@hooks/useTTS';
+import { isDev } from '@lib/app/env';
 import type { Slide } from '@lib/models';
 
 interface TTSEngineProps {
@@ -82,20 +83,22 @@ export function TTSEngine({
           <div className={`w-1 bg-sky-400 ${isPlaying ? 'eq-bar' : 'h-3'}`}></div>
         </div>
 
-        {/* Audio Source / Mode Indicator Pill */}
-        <button
-          onClick={() => dispatch(toggleAudioMode())}
-          className="rounded-full bg-surface-elevated px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-muted transition hover:bg-surface"
-          aria-label="Change voice generation"
-        >
-          {activeMode === 'kokoro'
-            ? 'Kokoro Voice'
-            : activeMode === 'browser'
-              ? 'Browser TTS'
-              : preferKokoroAudio
-                ? 'Kokoro First'
-                : 'Browser First'}
-        </button>
+        {/* Audio Source / Mode Indicator Pill (dev only — production uses Kokoro-first automatically) */}
+        {isDev && (
+          <button
+            onClick={() => dispatch(toggleAudioMode())}
+            className="rounded-full bg-surface-elevated px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-muted transition hover:bg-surface"
+            aria-label="Change voice generation"
+          >
+            {activeMode === 'kokoro'
+              ? 'Kokoro Voice'
+              : activeMode === 'browser'
+                ? 'Browser TTS'
+                : preferKokoroAudio
+                  ? 'Kokoro First'
+                  : 'Browser First'}
+          </button>
+        )}
 
         {/* Mute/Unmute Toggle */}
         <button

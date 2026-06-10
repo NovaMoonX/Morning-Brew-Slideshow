@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { doc, getDocFromServer, onSnapshot } from 'firebase/firestore';
 import { db, isFirebaseConfigured } from '@/firebase';
+import { isProd } from '@lib/app/env';
 import { MOCK_ISSUE } from '@lib/issues/mockIssue';
 import { normalizeIssue } from '@lib/issues/issue.utils';
 import { useAppDispatch, useAppSelector } from '@store/index';
@@ -32,6 +33,14 @@ export function useIssue(issueId: string): UseIssueState {
 
     // Fallback if Firebase is not configured or fails
     if (!isFirebaseConfigured || !db) {
+      if (isProd) {
+        dispatch(setUsingMock(false));
+        dispatch(setActiveIssue(null));
+        dispatch(setIssueLoading(false));
+        dispatch(setIssueError('Unable to load issue. Firebase is not configured for this build.'));
+        return;
+      }
+
       dispatch(setUsingMock(true));
       const mockIssue = { ...MOCK_ISSUE, id: issueId, date: issueId };
       dispatch(setActiveIssue(mockIssue));
