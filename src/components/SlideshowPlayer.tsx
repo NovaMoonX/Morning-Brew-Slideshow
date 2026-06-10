@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAppDispatch } from '@store/index';
 import { nextSlide, prevSlide, togglePlay } from '@store/slideshowSlice';
 import type { Slide } from '@lib/models';
@@ -22,6 +22,34 @@ interface SlideshowPlayerProps {
   slides: Slide[];
   currentIndex: number;
   totalSlides: number;
+  tocOpen?: boolean;
+  onOpenTableOfContents?: () => void;
+}
+
+function TableOfContentsIconButton({ onClick }: { onClick: (event: React.MouseEvent) => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full border border-slate-800 bg-slate-900 text-slate-300 shadow-lg transition hover:bg-slate-800 hover:text-white focus:outline-none focus:ring-2 focus:ring-sky-500"
+      aria-label="Open table of contents"
+    >
+      <svg
+        xmlns="http://www.w3.org/2000/svg"
+        fill="none"
+        viewBox="0 0 24 24"
+        strokeWidth={2}
+        stroke="currentColor"
+        className="size-5"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75zm0 5.25h.007v.008H3.75v-.008zm0 5.25h.007v.008H3.75v-.008z"
+        />
+      </svg>
+    </button>
+  );
 }
 
 function SectionHeader({
@@ -61,7 +89,7 @@ function SectionHeader({
   }
 
   return (
-    <div className="absolute top-14 left-6 right-20 z-10 md:top-16 md:left-10 md:right-24">
+    <div className="absolute top-[4.75rem] left-4 right-6 z-10 md:top-20 md:right-24">
       {box}
     </div>
   );
@@ -76,7 +104,7 @@ function SplitMarketsLayout({ slide }: { slide: Slide }) {
 
   return (
     <div className="absolute inset-0 grid w-full grid-cols-1 grid-rows-[minmax(0,54%)_minmax(0,46%)] gap-y-4 bg-slate-950">
-      <div className="flex min-h-0 w-full flex-col gap-2 overflow-hidden px-6 pt-14 pb-0 md:px-10 md:pt-16">
+      <div className="flex min-h-0 w-full flex-col gap-2 overflow-hidden px-4 pb-0 pt-20 md:px-10 md:pt-[4.5rem]">
         <SectionHeader label="MARKETS" title={null} inline />
         <div className="flex w-full min-h-0 flex-1 items-stretch">
           <MarketsTable tickers={tickers} />
@@ -143,6 +171,8 @@ export function SlideshowPlayer({
   slides,
   currentIndex,
   totalSlides,
+  tocOpen = false,
+  onOpenTableOfContents,
 }: SlideshowPlayerProps) {
   const dispatch = useAppDispatch();
   const percentage = totalSlides > 0 ? ((currentIndex + 1) / totalSlides) * 100 : 0;
@@ -199,9 +229,11 @@ export function SlideshowPlayer({
   const usesSplitLayout = usesSectionLayout || usesIntroSplitLayout || usesMarketsLayout;
   const showSkipButton = slide.type === 'link_cards';
   const [linkCardsPaused, setLinkCardsPaused] = useState(false);
+  const pausedForTocRef = useRef(false);
 
   useEffect(() => {
     setLinkCardsPaused(false);
+    pausedForTocRef.current = false;
   }, [slide.id]);
 
   useEffect(() => {
@@ -210,17 +242,35 @@ export function SlideshowPlayer({
     }
 
     const handleVisibility = () => {
-      if (document.visibilityState === 'visible') {
+      if (document.visibilityState === 'visible' && !tocOpen) {
         setLinkCardsPaused(false);
+        pausedForTocRef.current = false;
       }
     };
 
     document.addEventListener('visibilitychange', handleVisibility);
     return () => document.removeEventListener('visibilitychange', handleVisibility);
-  }, [slide.id, slide.type]);
+  }, [slide.id, slide.type, tocOpen]);
+
+  useEffect(() => {
+    if (slide.type !== 'link_cards' || tocOpen || !pausedForTocRef.current) {
+      return;
+    }
+    pausedForTocRef.current = false;
+    setLinkCardsPaused(false);
+  }, [tocOpen, slide.type]);
 
   const handleLinkRead = () => {
     setLinkCardsPaused(true);
+  };
+
+  const handleOpenTableOfContents = (event: React.MouseEvent) => {
+    event.stopPropagation();
+    if (slide.type === 'link_cards') {
+      setLinkCardsPaused(true);
+      pausedForTocRef.current = true;
+    }
+    onOpenTableOfContents?.();
   };
 
   const renderBodyContent = () => {
@@ -354,6 +404,32 @@ export function SlideshowPlayer({
                 <p className="text-sm font-medium text-slate-400">
                   Tap right to begin • Tap center to pause audio
                 </p>
+                {onOpenTableOfContents && (
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      handleOpenTableOfContents(event);
+                    }}
+                    className="pointer-events-auto inline-flex items-center gap-2 rounded-full border border-slate-700 bg-slate-900/90 px-5 py-2.5 text-xs font-bold uppercase tracking-wider text-slate-200 shadow-lg transition hover:border-slate-600 hover:text-white"
+                  >
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      strokeWidth={2}
+                      stroke="currentColor"
+                      className="size-4"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75zm0 5.25h.007v.008H3.75v-.008zm0 5.25h.007v.008H3.75v-.008z"
+                      />
+                    </svg>
+                    Table of Contents
+                  </button>
+                )}
               </div>
             )}
 
@@ -374,13 +450,18 @@ export function SlideshowPlayer({
           SLIDE {currentIndex + 1} OF {totalSlides}
         </div>
         {showSkipButton && (
-          <LinkCardsSkipButton
-            slideId={slide.id}
-            totalSlides={totalSlides}
-            linkCount={visibleLinkCount}
-            durationMs={linkCardDurationMs(visibleLinkCount)}
-            paused={linkCardsPaused}
-          />
+          <div className="pointer-events-auto flex items-center gap-2">
+            {onOpenTableOfContents && (
+              <TableOfContentsIconButton onClick={handleOpenTableOfContents} />
+            )}
+            <LinkCardsSkipButton
+              slideId={slide.id}
+              totalSlides={totalSlides}
+              linkCount={visibleLinkCount}
+              durationMs={linkCardDurationMs(visibleLinkCount)}
+              paused={linkCardsPaused}
+            />
+          </div>
         )}
       </div>
     </div>

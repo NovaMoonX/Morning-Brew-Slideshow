@@ -1,4 +1,4 @@
-export const SECTION_HERO_DURATION_MS = 3000;
+export const SECTION_HERO_DURATION_MS = 5000;
 export const LINK_CARD_SECONDS_PER_LINK = 6;
 export const MIN_READ_DURATION_MS = 3500;
 

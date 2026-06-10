@@ -1,9 +1,10 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '@store/index';
 import { useIssue } from '@hooks/useIssue';
 import { resetPlayer } from '@store/slideshowSlice';
 import { SlideshowPlayer } from '@components/SlideshowPlayer';
+import { IssueTableOfContents } from '@components/IssueTableOfContents';
 import { TTSEngine } from '@components/TTSEngine';
 
 export function SlideshowPage() {
@@ -14,9 +15,11 @@ export function SlideshowPage() {
   // Reset slide index when opening a new issue
   useEffect(() => {
     dispatch(resetPlayer());
+    setTocOpen(false);
   }, [date, dispatch]);
 
   const issueId = date || '';
+  const [tocOpen, setTocOpen] = useState(false);
   
   // Custom hook manages real-time snapshot subscription and dispatches updates to Redux
   const { issue, loading, error } = useIssue(issueId);
@@ -100,6 +103,15 @@ export function SlideshowPage() {
         slides={slides}
         currentIndex={activeIndex}
         totalSlides={totalSlides}
+        tocOpen={tocOpen}
+        onOpenTableOfContents={() => setTocOpen(true)}
+      />
+
+      <IssueTableOfContents
+        slides={slides}
+        currentIndex={activeIndex}
+        isOpen={tocOpen}
+        onClose={() => setTocOpen(false)}
       />
 
       {/* Discreet bottom status EQ & Controls */}
@@ -107,6 +119,7 @@ export function SlideshowPage() {
         slide={activeSlide}
         totalSlides={totalSlides}
         isAudioReady={isAudioReady}
+        onOpenTableOfContents={() => setTocOpen(true)}
       />
       </div>
     </div>
