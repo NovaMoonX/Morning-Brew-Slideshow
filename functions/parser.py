@@ -100,6 +100,9 @@ class MorningBrewParser:
             status='ready'
         )
 
+    def _is_tour_de_headlines(self, title: str) -> bool:
+        return 'tour de headlines' in title.strip().lower()
+
     def _parse_section(self, div_soup, section_id: str) -> Optional[ContentSection]:
         # Category label
         tag_p = div_soup.find(class_=re.compile(r'(tag-container|category|tag)'))
@@ -175,9 +178,12 @@ class MorningBrewParser:
         if not blocks:
             return None
 
+        is_tour = self._is_tour_de_headlines(title)
+
         # Heuristic splitting flag
         # Splits World Roundup/News briefs roundups
         needs_split = (
+            not is_tour and
             len([b for b in blocks if b.type == 'bullet']) > 4 and
             len([b for b in blocks if b.type == 'subheading']) == 0 and
             category.upper() in ['WORLD', 'NEWS', 'ANOTHER LAYER']
@@ -191,7 +197,8 @@ class MorningBrewParser:
             image_url=img_url,
             image_caption=None,
             is_sponsored=False,
-            needs_gemini_split=needs_split
+            needs_gemini_split=needs_split,
+            is_tour_de_headlines=is_tour,
         )
 
     def _content_block_from_element(self, child, section_id: str, section_title: str) -> ContentBlock:

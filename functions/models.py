@@ -76,6 +76,7 @@ class ContentSection:
     image_caption: Optional[str] = None
     is_sponsored: bool = False
     needs_gemini_split: bool = False
+    is_tour_de_headlines: bool = False
 
     def to_dict(self):
         result = asdict(self)

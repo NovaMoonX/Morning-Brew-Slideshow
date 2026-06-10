@@ -176,10 +176,17 @@ export function SlideshowPlayer({
 
   const sectionLabel = slide.section_label || 'DAILY ISSUE';
   const sectionTitle = sectionContext.title;
-  const sectionImageUrl = sectionContext.imageUrl ?? slide.image_url;
+  const sectionImageUrl = slide.image_url ?? sectionContext.imageUrl;
   const visibleLinkCount = useMemo(
     () => filterSectionBodyLinks(slide.links, sectionTitle).length,
     [slide.links, sectionTitle],
+  );
+  const isTourHeadlineSlide = useMemo(
+    () =>
+      Boolean(slide.title) &&
+      slide.id.includes('_headline_') &&
+      (sectionTitle?.toLowerCase().includes('tour de headlines') ?? false),
+    [slide.title, slide.id, sectionTitle],
   );
   const usesSectionLayout =
     Boolean(sectionImageUrl) &&
@@ -291,14 +298,30 @@ export function SlideshowPlayer({
 
           {(slide.type === 'body' || slide.type === 'bullet') && (
             <>
-              {slide.title && (
-                <h3 className="text-base font-bold leading-tight text-white md:text-lg">
-                  {slide.title}
-                </h3>
-              )}
-              {renderBodyContent()}
-              {slide.links.length > 0 && (
-                <SlideLinkList links={slide.links} sectionTitle={sectionTitle} />
+              {isTourHeadlineSlide ? (
+                <>
+                  <h3 className="text-lg font-bold leading-snug text-white md:text-xl">
+                    {slide.title}
+                  </h3>
+                  <div className="mt-3">
+                    <SlideBody slide={slide} className="text-base md:text-lg" />
+                  </div>
+                  {slide.links.length > 0 && (
+                    <SlideLinkList links={slide.links} sectionTitle={sectionTitle} />
+                  )}
+                </>
+              ) : (
+                <>
+                  {slide.title && (
+                    <h3 className="text-base font-bold leading-tight text-white md:text-lg">
+                      {slide.title}
+                    </h3>
+                  )}
+                  {renderBodyContent()}
+                  {slide.links.length > 0 && (
+                    <SlideLinkList links={slide.links} sectionTitle={sectionTitle} />
+                  )}
+                </>
               )}
             </>
           )}

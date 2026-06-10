@@ -39,6 +39,10 @@ export function SlideBody({ slide, className = '' }: SlideBodyProps) {
 }
 
 export function speakableText(slide: Slide): string {
+  if (slide.id.includes('_headline_') && slide.title?.trim()) {
+    const body = slide.body?.trim() ?? '';
+    return body ? `${slide.title}. ${body}` : slide.title;
+  }
   if (slide.body?.trim()) {
     return slide.body;
   }

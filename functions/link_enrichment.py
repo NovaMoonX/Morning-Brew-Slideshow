@@ -1,9 +1,13 @@
 """Shared link enrichment for ingest and Cloud Functions."""
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Set
 
 from enrichment import LinkEnricher
 from gemini import get_gemini_util
 from models import LinkRef
+
+
+def is_tour_de_headlines(title: str) -> bool:
+    return 'tour de headlines' in (title or '').strip().lower()
 
 
 def _needs_link_summary(link: dict) -> bool:
@@ -29,9 +33,30 @@ def _apply_section_image_fallbacks(
                 link['og_image'] = section_image
 
 
+def _apply_tour_headline_slide_images(
+    slides_list: List[dict],
+    tour_section_ids: Optional[Set[str]] = None,
+) -> None:
+    if not tour_section_ids:
+        return
+
+    for slide in slides_list:
+        if slide.get('section_id') not in tour_section_ids:
+            continue
+        if slide.get('type') not in ('bullet', 'body'):
+            continue
+
+        for link in slide.get('links', []):
+            og_image = link.get('og_image')
+            if og_image:
+                slide['image_url'] = og_image
+                break
+
+
 def enrich_slide_links(
     slides_list: List[dict],
     section_images: Optional[Dict[str, str]] = None,
+    tour_section_ids: Optional[Set[str]] = None,
 ) -> None:
     """Resolve tracking URLs and attach OpenGraph metadata to slide links in place."""
     unique_urls = {}
@@ -81,3 +106,4 @@ def enrich_slide_links(
                     link['og_description'] = summary
 
     _apply_section_image_fallbacks(slides_list, section_images)
+    _apply_tour_headline_slide_images(slides_list, tour_section_ids)

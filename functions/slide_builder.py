@@ -1,5 +1,6 @@
-from typing import List
-from models import BrewIssue, Slide, ContentSection, LinkRef
+from typing import List, Optional
+from bs4 import BeautifulSoup
+from models import BrewIssue, Slide, ContentSection, LinkRef, ContentBlock
 
 
 class SlideBuilder:
@@ -24,6 +25,38 @@ class SlideBuilder:
             else:
                 parts.append(f'<p>{block.text}</p>')
         return ''.join(parts)
+
+    @staticmethod
+    def _extract_tour_headline(block: ContentBlock) -> str:
+        if block.body_html:
+            soup = BeautifulSoup(block.body_html, 'html.parser')
+            strong = soup.find('strong')
+            if strong:
+                headline = strong.get_text(strip=True).rstrip('.')
+                if headline:
+                    return headline
+
+        first_sentence = block.text.split('.')[0].strip()
+        return first_sentence or block.text.strip()
+
+    @staticmethod
+    def _tour_body_without_headline(block: ContentBlock, headline: str) -> tuple[str, Optional[str]]:
+        body_text = block.text.strip()
+        headline_key = headline.rstrip('.').strip()
+        if headline_key and body_text.lower().startswith(headline_key.lower()):
+            body_text = body_text[len(headline_key):].lstrip(' .')
+
+        body_html = block.body_html
+        if body_html:
+            soup = BeautifulSoup(body_html, 'html.parser')
+            strong = soup.find('strong')
+            if strong:
+                strong.decompose()
+            cleaned = ''.join(str(child) for child in soup.children).strip()
+            if cleaned:
+                body_html = cleaned
+
+        return body_text, body_html
 
     def build_slides(self, issue: BrewIssue) -> List[Slide]:
         slides = []
@@ -102,6 +135,61 @@ class SlideBuilder:
         return slides
 
     def build_section_slides(self, section: ContentSection, start_order: int) -> tuple[List[Slide], int]:
+        if section.is_tour_de_headlines:
+            return self._build_tour_de_headlines_slides(section, start_order)
+        return self._build_standard_section_slides(section, start_order)
+
+    def _build_tour_de_headlines_slides(
+        self,
+        section: ContentSection,
+        start_order: int,
+    ) -> tuple[List[Slide], int]:
+        slides = []
+        order = start_order
+        sec_id = section.id
+
+        slides.append(Slide(
+            id=f"{sec_id}_hero_{order:03d}",
+            type="section_hero",
+            section_id=sec_id,
+            section_label=section.category,
+            title=section.title,
+            body=section.title,
+            image_url=section.image_url,
+            links=[],
+            order=order
+        ))
+        order += 1
+
+        for b_idx, block in enumerate(section.content_blocks):
+            if block.text.strip().lower() == section.title.strip().lower():
+                continue
+
+            headline = self._extract_tour_headline(block)
+            body_text, body_html = self._tour_body_without_headline(block, headline)
+            body_links = [link for link in block.links if self._is_body_content_link(link, section)]
+
+            slides.append(Slide(
+                id=f"{sec_id}_headline_{b_idx:02d}_{order:03d}",
+                type="body",
+                section_id=sec_id,
+                section_label=section.category,
+                title=headline,
+                body=body_text,
+                body_html=body_html,
+                links=body_links,
+                image_url=None,
+                order=order
+            ))
+            order += 1
+
+        return slides, order
+
+    def _build_standard_section_slides(
+        self,
+        section: ContentSection,
+        start_order: int,
+    ) -> tuple[List[Slide], int]:
         slides = []
         order = start_order
         sec_id = section.id

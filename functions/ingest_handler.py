@@ -65,9 +65,16 @@ def handle_ingest_issue(req) -> tuple[str, int]:
             for section in issue.sections
             if section.image_url
         }
+        tour_section_ids = {
+            section.id for section in issue.sections if section.is_tour_de_headlines
+        }
         _log("Enriching link metadata")
         from link_enrichment import enrich_slide_links
-        enrich_slide_links(slides_list, section_images=section_images)
+        enrich_slide_links(
+            slides_list,
+            section_images=section_images,
+            tour_section_ids=tour_section_ids,
+        )
 
         _log(f"Writing issue {actual_date} to Firestore ({len(slides_list)} slides)")
         try:

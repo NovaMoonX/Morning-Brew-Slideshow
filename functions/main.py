@@ -155,7 +155,8 @@ def enrich_issue(event: firestore_fn.Event[firestore_fn.DocumentSnapshot | None]
                         ]) for b in sec.get('content_blocks', [])
                     ],
                     image_url=sec.get('image_url'),
-                    image_caption=sec.get('image_caption')
+                    image_caption=sec.get('image_caption'),
+                    is_tour_de_headlines=sec.get('is_tour_de_headlines', False),
                 ))
 
             brew_tickers = [
@@ -226,13 +227,19 @@ def enrich_issue(event: firestore_fn.Event[firestore_fn.DocumentSnapshot | None]
                     except Exception as sum_err:
                         print(f"Summary scrape failed: {sum_err}")
 
-        from link_enrichment import _apply_section_image_fallbacks
+        from link_enrichment import _apply_section_image_fallbacks, _apply_tour_headline_slide_images
         section_images = {
             sec.get('id'): sec.get('image_url')
             for sec in sections_dict
             if sec.get('image_url')
         }
+        tour_section_ids = {
+            sec.get('id')
+            for sec in sections_dict
+            if sec.get('is_tour_de_headlines')
+        }
         _apply_section_image_fallbacks(slides_list, section_images)
+        _apply_tour_headline_slide_images(slides_list, tour_section_ids)
 
         # Update Firestore
         get_db().collection('issues').document(date_key).update({
