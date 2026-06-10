@@ -1,4 +1,4 @@
-import requests
+import http_client
 from bs4 import BeautifulSoup
 from typing import List, Optional
 from urllib.parse import urlparse
@@ -19,7 +19,7 @@ class LinkEnricher:
             return url
         try:
             # Send HEAD request to quickly resolve redirects without downloading body
-            res = requests.head(url, headers=self.headers, allow_redirects=True, timeout=self.timeout)
+            res = http_client.head(url, headers=self.headers, timeout=self.timeout)
             return res.url
         except Exception as e:
             print(f"Error resolving redirect for {url}: {e}")
@@ -31,7 +31,7 @@ class LinkEnricher:
         link.url = resolved_url
 
         try:
-            res = requests.get(resolved_url, headers=self.headers, timeout=self.timeout)
+            res = http_client.get(resolved_url, headers=self.headers, timeout=self.timeout)
             if res.status_code != 200:
                 return link
 

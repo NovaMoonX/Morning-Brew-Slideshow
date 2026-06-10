@@ -31,7 +31,8 @@ class MorningBrewParser:
 
         # Extract core fields
         html_body = issue_data.get('html')
-        date_iso = issue_data.get('date') or date_str or datetime.utcnow().strftime('%Y-%m-%d')
+        date_raw = issue_data.get('date') or date_str or datetime.utcnow().strftime('%Y-%m-%d')
+        issue_id = self._normalize_issue_id(date_raw)
         subject_line = issue_data.get('subjectLine') or "Morning Brew Newsletter"
         title = issue_data.get('title') or "Morning Brew"
         
@@ -94,8 +95,8 @@ class MorningBrewParser:
         word_of_day = self._extract_word_of_day(body_soup)
 
         return BrewIssue(
-            id=date_iso,
-            date=self._format_human_date(date_iso),
+            id=issue_id,
+            date=self._format_human_date(issue_id),
             title=title,
             subject_line=subject_line,
             primary_image_url=primary_image,
@@ -245,9 +246,22 @@ class MorningBrewParser:
                     return match.group(1)
         return None
 
-    def _format_human_date(self, iso_date: str) -> str:
+    def _normalize_issue_id(self, date_value: str) -> str:
+        """Return YYYY-MM-DD for Firestore document ids."""
+        if not date_value:
+            return datetime.utcnow().strftime('%Y-%m-%d')
+        if 'T' in date_value:
+            return date_value.split('T')[0]
+        if re.match(r'^\d{4}-\d{2}-\d{2}$', date_value):
+            return date_value
         try:
-            dt = datetime.strptime(iso_date, '%Y-%m-%d')
+            return datetime.strptime(date_value[:10], '%Y-%m-%d').strftime('%Y-%m-%d')
+        except ValueError:
+            return datetime.utcnow().strftime('%Y-%m-%d')
+
+    def _format_human_date(self, issue_id: str) -> str:
+        try:
+            dt = datetime.strptime(issue_id, '%Y-%m-%d')
             return dt.strftime('%B %d, %Y')
-        except:
-            return iso_date
+        except ValueError:
+            return issue_id

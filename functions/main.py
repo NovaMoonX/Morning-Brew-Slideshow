@@ -1,82 +1,58 @@
-import os
+import json
 from datetime import datetime, timedelta
-from firebase_functions import https_fn, firestore_fn, scheduler_fn
+from firebase_functions import https_fn, firestore_fn, scheduler_fn, options
 
-from firebase_admin import initialize_app, firestore, storage
-import requests
+from firebase_admin import storage
 from bs4 import BeautifulSoup
 
-# Initialize Firebase Admin SDK
-initialize_app()
-_db_client = None
-def get_db():
-    global _db_client
-    if _db_client is None:
-        _db_client = firestore.client()
-    return _db_client
+import http_client
+from firebase_db import get_db
+from ingest_handler import handle_ingest_issue, ARCHIVE_BASE_URL, LATEST_ISSUE_URL
 
 from parser import MorningBrewParser
 from slide_builder import SlideBuilder
 from enrichment import LinkEnricher
-from gemini import GeminiUtil
+from gemini import get_gemini_util
 from audio import AudioEngine
 
-# 1. FUNCTION: Ingest Issue
-@https_fn.on_request(timeout_sec=120, memory=512)
+
+def _fetch_issue_slugs_from_archive(limit: int) -> list:
+    """Fetches the Morning Brew archive page and returns up to `limit` issue slugs
+    by parsing anchor hrefs that start with '/issues/'.
+    """
+    archive_url = f"{ARCHIVE_BASE_URL}/archive"
+    response = http_client.get(archive_url, timeout=15)
+    if response.status_code != 200:
+        raise RuntimeError(
+            f"Failed to fetch Morning Brew archive (status {response.status_code})."
+        )
+
+    soup = BeautifulSoup(response.text, 'html.parser')
+    slugs = []
+    seen = set()
+    for anchor in soup.find_all('a', href=True):
+        href = anchor['href']
+        if href.startswith('/issues/'):
+            slug = href[len('/issues/'):].strip('/')
+            if slug and slug not in seen:
+                seen.add(slug)
+                slugs.append(slug)
+                if len(slugs) >= limit:
+                    break
+    return slugs
+@https_fn.on_request(
+    timeout_sec=120,
+    memory=512,
+    invoker="public",
+    cors=options.CorsOptions(
+        cors_origins="*",
+        cors_methods=["GET", "POST", "OPTIONS"],
+    ),
+)
 def ingest_issue(req: https_fn.Request) -> https_fn.Response:
     """HTTP endpoint to download the latest Morning Brew newsletter and compile slides."""
-    date_param = req.args.get('date')  # YYYY-MM-DD
-    force_write = req.args.get('force') == 'true'
-
-    target_date = date_param
-    url = "https://www.morningbrew.com/daily/issues/latest"
-    if date_param:
-        url = f"https://www.morningbrew.com/daily/issues/{date_param}"
-
-    try:
-        # Check current index to avoid duplicate work
-        if date_param and not force_write:
-            doc_ref = get_db().collection('issues').document(date_param)
-            if doc_ref.get().exists:
-                return https_fn.Response(f"Issue {date_param} already exists. Skipping.", status=200)
-
-        # Download page HTML
-        headers = {'User-Agent': 'Mozilla/5.0'}
-        response = requests.get(url, headers=headers, timeout=15)
-        if response.status_code != 200:
-            return https_fn.Response(f"Failed to fetch Morning Brew newsletter from {url}. Status: {response.status_code}", status=500)
-
-        # Ingest and Parse
-        parser = MorningBrewParser()
-        issue = parser.parse_issue(response.text, target_date)
-        actual_date = issue.id  # YYYY-MM-DD
-
-        if not force_write:
-            doc_ref = get_db().collection('issues').document(actual_date)
-            if doc_ref.get().exists:
-                return https_fn.Response(f"Issue {actual_date} already exists in Firestore. Skipping.", status=200)
-
-        # Compile Slide Deck
-        builder = SlideBuilder()
-        issue.slides = builder.build_slides(issue)
-
-        # Save Issue document
-        get_db().collection('issues').document(actual_date).set(issue.to_dict())
-
-        # Save Summary Index for landing page selector grid
-        get_db().collection('issue_index').document(actual_date).set({
-            'id': actual_date,
-            'date': issue.date,
-            'title': issue.title,
-            'primary_image_url': issue.primary_image_url,
-            'status': 'ready',
-            'fetched_at': datetime.utcnow().isoformat()
-        })
-
-        return https_fn.Response(f"Successfully ingested issue {actual_date}. Total slides: {len(issue.slides)}", status=200)
-    except Exception as e:
-        print(f"Critical Ingest failure: {e}")
-        return https_fn.Response(f"Ingest failed: {str(e)}", status=500)
+    body, status = handle_ingest_issue(req)
+    return https_fn.Response(body, status=status)
 
 
 # 2. FUNCTION: Enrich Issue
@@ -133,7 +109,7 @@ def enrich_issue(event: firestore_fn.Event[firestore_fn.DocumentSnapshot | None]
                     link['og_image'] = enriched.og_image
 
         # 3. Gemini Integrations: Section Splitting and Link Summarizations
-        gemini = GeminiUtil()
+        gemini = get_gemini_util()
         
         # Split marked sections
         sections_dict = raw_data.get('sections', [])
@@ -217,7 +193,7 @@ def enrich_issue(event: firestore_fn.Event[firestore_fn.DocumentSnapshot | None]
                 # If og desc lacking, get a clean 2-sentence summary of the page using Gemini Flash
                 if not link.get('og_description') or len(link.get('og_description', '')) < 80:
                     try:
-                        res = requests.get(link.get('url'), headers={'User-Agent': 'Mozilla/5.0'}, timeout=5)
+                        res = http_client.get(link.get('url'), timeout=5)
                         if res.status_code == 200:
                             summary = gemini.summarize_article(link.get('url'), res.text)
                             if summary:
@@ -310,7 +286,7 @@ def generate_audio(event: firestore_fn.Event[firestore_fn.Change[firestore_fn.Do
 def cleanup_old_issues(req: https_fn.Request) -> https_fn.Response:
     """Sunday weekly cleanup script deleting data older than 7 days from storage and databases."""
     try:
-        seven_days_ago = datetime.utcnow() - timedelta(days=7)
+        seven_days_ago = datetime.utcnow() - timedelta(days=28)
         date_threshold = seven_days_ago.strftime('%Y-%m-%d')
 
         print(f"Cleaning issues older than {date_threshold}")
@@ -341,3 +317,124 @@ def cleanup_old_issues(req: https_fn.Request) -> https_fn.Response:
     except Exception as e:
         print(f"Cleanup failure: {e}")
         return https_fn.Response(f"Cleanup failed: {str(e)}", status=500)
+
+
+# 5. FUNCTION: Scheduled Daily Ingest (6am ET, retries every 20 min for 2 hours)
+@scheduler_fn.on_schedule(
+    schedule="0 6 * * *",
+    timezone="America/New_York",
+    retry_count=6,
+    min_backoff_seconds=1200,
+    max_backoff_seconds=1200,
+    max_doublings=0,
+)
+def scheduled_ingest_issue(event: scheduler_fn.ScheduledEvent) -> None:
+    """Runs daily at 6am ET. Ingests today's issue. Cloud Scheduler retries every 20 min
+    (up to 6 times = 2 hours) if the function raises an exception."""
+
+    url = LATEST_ISSUE_URL
+    response = http_client.get(url, timeout=15)
+
+    if response.status_code != 200:
+        # Raise so Cloud Scheduler retries per the retry config above
+        raise RuntimeError(
+            f"Morning Brew returned HTTP {response.status_code} for latest issue URL. "
+            "Cloud Scheduler will retry in 20 minutes."
+        )
+
+    parser = MorningBrewParser()
+    issue = parser.parse_issue(response.text, None)
+    actual_date = issue.id
+
+    # Skip if already ingested
+    if get_db().collection('issues').document(actual_date).get().exists:
+        print(f"Scheduled ingest: issue {actual_date} already exists. Skipping.")
+        return
+
+    builder = SlideBuilder()
+    issue.slides = builder.build_slides(issue)
+
+    get_db().collection('issues').document(actual_date).set(issue.to_dict())
+    get_db().collection('issue_index').document(actual_date).set({
+        'id': actual_date,
+        'date': issue.date,
+        'title': issue.title,
+        'primary_image_url': issue.primary_image_url,
+        'status': 'ready',
+        'fetched_at': datetime.utcnow().isoformat()
+    })
+    print(f"Scheduled ingest completed for {actual_date}. Total slides: {len(issue.slides)}")
+
+
+# 6. FUNCTION: Backfill Issues (HTTP, user-triggered)
+@https_fn.on_request(timeout_sec=540, memory=512)
+def backfill_issues(req: https_fn.Request) -> https_fn.Response:
+    """Bulk-ingest issues for the past N issues from the archive (default 7, max 28).
+    Discovers issues by scraping https://www.morningbrew.com/archive anchor hrefs.
+    Query params:
+      days  - number of recent issues to fetch (default 7, max 28)
+      force - set to 'true' to re-ingest issues that already exist
+    """
+    cors_headers = {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type',
+    }
+
+    if req.method == 'OPTIONS':
+        return https_fn.Response('', status=204, headers=cors_headers)
+
+    try:
+        count = min(int(req.args.get('days', '7')), 28)
+    except (ValueError, TypeError):
+        count = 7
+    force_write = req.args.get('force') == 'true'
+
+    results = []
+
+    try:
+        slugs = _fetch_issue_slugs_from_archive(count)
+    except Exception as e:
+        body = json.dumps({'error': str(e), 'ingested': 0, 'results': []})
+        return https_fn.Response(body, status=502, headers={**cors_headers, 'Content-Type': 'application/json'})
+
+    for slug in slugs:
+        url = f"{ARCHIVE_BASE_URL}/issues/{slug}"
+
+        try:
+            response = http_client.get(url, timeout=15)
+            if response.status_code != 200:
+                results.append({'slug': slug, 'status': 'fetch_failed', 'http_code': response.status_code})
+                continue
+
+            parser = MorningBrewParser()
+            issue = parser.parse_issue(response.text, None)
+            actual_date = issue.id
+
+            if not force_write:
+                if get_db().collection('issues').document(actual_date).get().exists:
+                    results.append({'slug': slug, 'date': actual_date, 'status': 'skipped'})
+                    continue
+
+            builder = SlideBuilder()
+            issue.slides = builder.build_slides(issue)
+
+            get_db().collection('issues').document(actual_date).set(issue.to_dict())
+            get_db().collection('issue_index').document(actual_date).set({
+                'id': actual_date,
+                'date': issue.date,
+                'title': issue.title,
+                'primary_image_url': issue.primary_image_url,
+                'status': 'ready',
+                'fetched_at': datetime.utcnow().isoformat()
+            })
+            results.append({'slug': slug, 'date': actual_date, 'status': 'ingested'})
+            print(f"Backfill ingested: {actual_date} (slug: '{slug}', {len(issue.slides)} slides)")
+
+        except Exception as e:
+            print(f"Backfill error for slug '{slug}': {e}")
+            results.append({'slug': slug, 'status': 'error', 'error': str(e)})
+
+    ingested = sum(1 for r in results if r['status'] == 'ingested')
+    body = json.dumps({'ingested': ingested, 'results': results})
+    return https_fn.Response(body, status=200, headers={**cors_headers, 'Content-Type': 'application/json'})

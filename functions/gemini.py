@@ -1,18 +1,48 @@
 import os
+import re
 import json
-import google.generativeai as genai
 from typing import List, Optional
 from models import ContentBlock, ContentSection
 
-# Initialize Gemini API configuration
-api_key = os.environ.get('GEMINI_API_KEY')
-if api_key:
-    genai.configure(api_key=api_key)
+# ── Mock / Real switch ──────────────────────────────────────────────────────
+# Set USE_MOCK_GEMINI=false in your environment to enable real Gemini calls.
+USE_MOCK_GEMINI: bool = os.environ.get('USE_MOCK_GEMINI', 'true').lower() != 'false'
+
+# Only import + configure the real SDK when needed
+if not USE_MOCK_GEMINI:
+    import google.generativeai as genai
+    api_key = os.environ.get('GEMINI_API_KEY')
+    if api_key:
+        genai.configure(api_key=api_key)
+
+
+class MockGeminiUtil:
+    """Drop-in Gemini mock. Returns content unchanged — no API calls.
+
+    To switch to the real implementation, set USE_MOCK_GEMINI=false and
+    provide a GEMINI_API_KEY in your environment variables.
+    """
+
+    def split_section(self, section: ContentSection) -> List[ContentBlock]:
+        """Pass-through: returns content blocks unchanged."""
+        return section.content_blocks
+
+    def summarize_article(self, url: str, page_text: str) -> Optional[str]:
+        """Pass-through: returns None (no summary generated)."""
+        return None
+
+
+def get_gemini_util():
+    """Factory that returns MockGeminiUtil or GeminiUtil based on USE_MOCK_GEMINI."""
+    if USE_MOCK_GEMINI:
+        return MockGeminiUtil()
+    return GeminiUtil()
+
 
 class GeminiUtil:
     def __init__(self, model_name: str = "gemini-2.0-flash"):
         self.model_name = model_name
-        self.enabled = bool(api_key)
+        self.enabled = bool(os.environ.get('GEMINI_API_KEY'))
 
     def split_section(self, section: ContentSection) -> List[ContentBlock]:
         """Uses Gemini to split roundup sections (like World Roundup) into clean blocks."""

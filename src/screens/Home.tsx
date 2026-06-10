@@ -1,16 +1,99 @@
-import { useEffect } from 'react';
+import { useEffect, useCallback, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '@store/index';
-import { fetchAvailableIssues } from '@store/issueSlice';
+import { fetchAvailableIssues, testFetchLatest, clearTestFetch } from '@store/issueSlice';
 import { APP_TITLE, APP_DESCRIPTION } from '@lib/app';
+
+function DevTestFetchPanel({
+  loading,
+  error,
+  complete,
+  message,
+  onFetch,
+  variant = 'header',
+}: {
+  loading: boolean;
+  error: string | null;
+  complete: boolean;
+  message: string | null;
+  onFetch: () => void;
+  variant?: 'header' | 'empty';
+}) {
+  const [elapsedSec, setElapsedSec] = useState(0);
+
+  useEffect(() => {
+    if (!loading) {
+      setElapsedSec(0);
+      return;
+    }
+    const started = Date.now();
+    const id = window.setInterval(() => {
+      setElapsedSec(Math.floor((Date.now() - started) / 1000));
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, [loading]);
+
+  const buttonClass =
+    variant === 'empty'
+      ? 'rounded-lg bg-sky-500 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-sky-600 disabled:opacity-50'
+      : 'rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700';
+
+  return (
+    <div className={`flex flex-col gap-2 ${variant === 'header' ? 'items-center md:items-end' : 'items-center'}`}>
+      <button onClick={onFetch} disabled={loading} className={buttonClass}>
+        {loading ? 'Ingesting…' : 'Test: Fetch Latest Issue'}
+      </button>
+
+      {loading && (
+        <div
+          className={`flex items-start gap-2 text-xs text-slate-600 dark:text-slate-400 ${variant === 'header' ? 'max-w-xs text-right' : 'max-w-sm text-center'}`}
+          role="status"
+          aria-live="polite"
+        >
+          <div className="mt-0.5 size-3.5 shrink-0 animate-spin rounded-full border-2 border-slate-300 border-t-sky-500" />
+          <div>
+            <p className="font-medium text-slate-700 dark:text-slate-300">
+              Working… {elapsedSec}s
+            </p>
+            <p className="mt-0.5">
+              Fetching Morning Brew, parsing slides, writing to Firestore. Usually 10–30s; Firestore
+              auth problems can take up to 2 minutes.
+            </p>
+            <p className="mt-1 text-slate-500 dark:text-slate-500">
+              Watch the <code className="text-[10px]">npm run dev:ingest</code> terminal for step logs.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {complete && message && !loading && (
+        <p className="text-xs text-emerald-600 dark:text-emerald-400 max-w-sm text-center md:text-right">
+          {message}
+        </p>
+      )}
+      {error && !loading && (
+        <p className="text-xs text-red-500 dark:text-red-400 max-w-sm text-center md:text-right">{error}</p>
+      )}
+    </div>
+  );
+}
 
 export function Home() {
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
-  const { availableIssues, loading, error } = useAppSelector((state) => state.issue);
+  const { availableIssues, loading, error, testFetchLoading, testFetchError, testFetchComplete, testFetchMessage } =
+    useAppSelector((state) => state.issue);
 
   useEffect(() => {
     dispatch(fetchAvailableIssues());
+  }, [dispatch]);
+
+  const handleTestFetch = useCallback(async () => {
+    dispatch(clearTestFetch());
+    const result = await dispatch(testFetchLatest());
+    if (testFetchLatest.fulfilled.match(result)) {
+      dispatch(fetchAvailableIssues());
+    }
   }, [dispatch]);
 
   const latestIssue = availableIssues[0];
@@ -56,7 +139,42 @@ export function Home() {
               {APP_DESCRIPTION}
             </p>
           </div>
+          {import.meta.env.DEV && (
+            <div className="mt-6 md:mt-0">
+              <DevTestFetchPanel
+                loading={testFetchLoading}
+                error={testFetchError}
+                complete={testFetchComplete}
+                message={testFetchMessage}
+                onFetch={handleTestFetch}
+                variant="header"
+              />
+            </div>
+          )}
         </header>
+
+        {/* Empty state when no issues are loaded */}
+        {!loading && availableIssues.length === 0 && !error && (
+          <section className="flex flex-col items-center justify-center py-24 text-center">
+            <div className="text-5xl mb-4">☕</div>
+            <h2 className="text-xl font-bold text-slate-700 dark:text-slate-300">No issues loaded yet</h2>
+            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400 max-w-xs">
+              Issues are ingested automatically each morning. Check back after 6am ET.
+            </p>
+            {import.meta.env.DEV && (
+              <div className="mt-6">
+                <DevTestFetchPanel
+                  loading={testFetchLoading}
+                  error={testFetchError}
+                  complete={testFetchComplete}
+                  message={testFetchMessage}
+                  onFetch={handleTestFetch}
+                  variant="empty"
+                />
+              </div>
+            )}
+          </section>
+        )}
 
         {/* Latest Issue Hero Section */}
         {latestIssue && (

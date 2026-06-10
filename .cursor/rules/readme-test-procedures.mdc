@@ -1,0 +1,32 @@
+---
+description: Keep README test procedures in sync when dev/test workflow changes
+globs: README.md,package.json,functions/dev_server.py,functions/ingest_handler.py,src/store/issueSlice.ts,src/screens/Home.tsx
+alwaysApply: false
+---
+
+# README test procedures
+
+When you change how the project is run, tested, or debugged locally, **update `README.md` in the same change** (especially the **Testing** section).
+
+## Must document when changed
+
+- npm scripts that affect local dev or testing (`dev`, `dev:ingest`, `lint`, `build`, deploy scripts)
+- Local ingest flow: functions-framework target, port, source file (`functions/dev_server.py`)
+- Client dev URL for ingest (`src/store/issueSlice.ts` — currently `http://127.0.0.1:8787` in dev)
+- Required env vars (`.env.local`, `VITE_*`, optional `VITE_INGEST_FUNCTION_URL`)
+- Python setup: venv, `pip install -r requirements.txt`, `gcloud auth application-default login`
+- Dev-only UI entry points (e.g. Home → **Test: Fetch Latest Issue**)
+- Common failure modes and fixes (403 IAM, Firestore auth, port conflicts, CORS)
+
+## README Testing section should include
+
+1. Commands to run (copy-pasteable)
+2. Expected outcome (HTTP status, UI behavior)
+3. Optional curl one-liner for the ingest server
+4. Troubleshooting table for frequent errors
+
+## Do not
+
+- Leave README describing Firebase Functions **emulator** for ingest if the project uses **functions-framework** (`npm run dev:ingest`)
+- Document stale stack details (e.g. wrong state library or missing Python backend)
+- Add README updates for unrelated refactors with no test/workflow impact
