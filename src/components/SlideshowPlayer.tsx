@@ -115,6 +115,7 @@ function SlideScrollLayout({
 }) {
   return (
     <div
+      data-slide-scroll
       className={`absolute inset-0 overflow-y-auto overscroll-contain bg-background ${bottomPadding}`}
     >
       <div className="mx-auto w-full max-w-xl space-y-4 px-6 pt-20 md:px-10 md:pt-[4.5rem]">
@@ -185,6 +186,7 @@ export function SlideshowPlayer({
   onExit,
 }: SlideshowPlayerProps) {
   const dispatch = useAppDispatch();
+  const playerRef = useRef<HTMLDivElement>(null);
   const isPlaying = useAppSelector((state) => state.slideshow.isPlaying);
   const isMuted = useAppSelector((state) => state.slideshow.isMuted);
   const percentage = totalSlides > 0 ? ((currentIndex + 1) / totalSlides) * 100 : 0;
@@ -272,6 +274,14 @@ export function SlideshowPlayer({
   }, [slide.id]);
 
   useEffect(() => {
+    playerRef.current
+      ?.querySelectorAll('[data-slide-scroll]')
+      .forEach((element) => {
+        (element as HTMLElement).scrollTop = 0;
+      });
+  }, [slide.id]);
+
+  useEffect(() => {
     if (slide.type !== 'link_cards') {
       return;
     }
@@ -327,6 +337,7 @@ export function SlideshowPlayer({
 
   return (
     <div
+      ref={playerRef}
       onClick={handleTap}
       className="relative flex h-full w-full cursor-pointer flex-col bg-background text-foreground select-none"
     >
@@ -494,7 +505,10 @@ export function SlideshowPlayer({
       )}
 
       {!usesSplitLayout && !usesEndLayout && !usesExtrasHubLayout && (
-        <div className="absolute inset-0 z-10 overflow-y-auto overscroll-contain px-6 pt-16 pb-28 md:px-8">
+        <div
+          data-slide-scroll
+          className="absolute inset-0 z-10 overflow-y-auto overscroll-contain px-6 pt-16 pb-28 md:px-8"
+        >
           <div className="mx-auto flex min-h-full max-w-lg flex-col justify-center">
             {slide.type === 'cover' && (
               <div className="mx-auto max-w-lg space-y-6 text-center">
@@ -549,17 +563,17 @@ export function SlideshowPlayer({
                     )}
                   </button>
                 </div>
-                <div className="flex w-full justify-center">
+                <div className="hidden flex w-full justify-center">
                   <button
                     type="button"
                     onClick={(event) => {
                       event.stopPropagation();
                       dispatch(toggleMute());
                     }}
-                    className={`pointer-events-auto inline-flex size-10 items-center justify-center rounded-full transition focus:outline-none focus:ring-2 focus:ring-sky-500 ${
+                    className={`pointer-events-auto inline-flex size-10 items-center justify-center rounded-full transition focus:outline-none focus:ring-2 ${
                       isMuted
-                        ? 'border border-rose-500/35 bg-rose-500/10 text-rose-600 dark:text-rose-400'
-                        : 'text-muted hover:bg-surface-elevated hover:text-foreground'
+                        ? 'border border-rose-500/35 bg-rose-500/10 text-rose-600 focus:ring-rose-500 dark:text-rose-400 dark:focus:ring-rose-400'
+                        : 'text-muted hover:bg-surface-elevated hover:text-foreground focus:ring-sky-500'
                     }`}
                     aria-label={isMuted ? 'Unmute' : 'Mute'}
                     aria-pressed={isMuted}

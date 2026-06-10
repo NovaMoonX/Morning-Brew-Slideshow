@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useAppDispatch, useAppSelector } from '@store/index';
 import { nextSlide } from '@store/slideshowSlice';
 import { SECTION_HERO_DURATION_MS } from '@lib/slideshow/timing';
@@ -25,38 +25,73 @@ export function SectionHeroCountdown({
   const totalSeconds = Math.max(1, Math.ceil(durationMs / 1000));
   const [secondsLeft, setSecondsLeft] = useState(totalSeconds);
   const advancedRef = useRef(false);
+  const deadlineRef = useRef(Date.now() + durationMs);
+  const tickTimerRef = useRef<number | null>(null);
+  const advanceTimerRef = useRef<number | null>(null);
 
-  useEffect(() => {
-    advancedRef.current = false;
-    setSecondsLeft(totalSeconds);
+  const clearTimers = useCallback(() => {
+    if (tickTimerRef.current !== null) {
+      window.clearInterval(tickTimerRef.current);
+      tickTimerRef.current = null;
+    }
+    if (advanceTimerRef.current !== null) {
+      window.clearTimeout(advanceTimerRef.current);
+      advanceTimerRef.current = null;
+    }
+  }, []);
 
-    if (!isPlaying) {
+  const getRemainingMs = useCallback(
+    () => Math.max(0, deadlineRef.current - Date.now()),
+    [],
+  );
+
+  const startTimers = useCallback(() => {
+    clearTimers();
+    const remainingMs = getRemainingMs();
+    if (remainingMs <= 0 || advancedRef.current) {
       return;
     }
 
-    const startedAt = Date.now();
+    const updateDisplay = () => {
+      const left = getRemainingMs();
+      setSecondsLeft(left === 0 ? 0 : Math.ceil(left / 1000));
+    };
 
-    const tickTimer = window.setInterval(() => {
-      const elapsed = Date.now() - startedAt;
-      const remainingMs = Math.max(0, durationMs - elapsed);
-      const displaySeconds = remainingMs === 0 ? 0 : Math.ceil(remainingMs / 1000);
-      setSecondsLeft(displaySeconds);
-    }, 50);
-
-    const advanceTimer = window.setTimeout(() => {
+    updateDisplay();
+    tickTimerRef.current = window.setInterval(updateDisplay, 50);
+    advanceTimerRef.current = window.setTimeout(() => {
       if (advancedRef.current) {
         return;
       }
       advancedRef.current = true;
       setSecondsLeft(0);
       dispatch(nextSlide({ totalSlides, mainLastIndex }));
-    }, durationMs);
+    }, remainingMs);
+  }, [clearTimers, dispatch, getRemainingMs, mainLastIndex, totalSlides]);
 
-    return () => {
-      window.clearInterval(tickTimer);
-      window.clearTimeout(advanceTimer);
-    };
-  }, [slideId, durationMs, totalSeconds, dispatch, totalSlides, mainLastIndex, isPlaying]);
+  useEffect(() => {
+    advancedRef.current = false;
+    deadlineRef.current = Date.now() + durationMs;
+    setSecondsLeft(totalSeconds);
+    clearTimers();
+
+    if (!isPlaying) {
+      return;
+    }
+
+    startTimers();
+    return clearTimers;
+  }, [slideId, durationMs, totalSeconds, clearTimers, startTimers, isPlaying]);
+
+  useEffect(() => {
+    if (!isPlaying) {
+      clearTimers();
+      return;
+    }
+    if (!advancedRef.current && getRemainingMs() > 0) {
+      startTimers();
+    }
+  }, [isPlaying, clearTimers, getRemainingMs, startTimers]);
 
   return (
     <div className="flex flex-col items-center px-4 py-8 text-center">

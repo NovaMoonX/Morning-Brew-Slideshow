@@ -68,10 +68,10 @@ export function TTSEngine({
         </div>
 
         <div className="flex h-4 w-6 shrink-0 items-end gap-0.5">
-          <div className={`w-1 bg-sky-400 ${isPlaying && !isMuted ? 'eq-bar' : 'h-1'}`}></div>
-          <div className={`w-1 bg-sky-400 ${isPlaying && !isMuted ? 'eq-bar' : 'h-2'}`}></div>
-          <div className={`w-1 bg-sky-400 ${isPlaying && !isMuted ? 'eq-bar' : 'h-1.5'}`}></div>
-          <div className={`w-1 bg-sky-400 ${isPlaying && !isMuted ? 'eq-bar' : 'h-3'}`}></div>
+          <div className={`w-1 bg-sky-400 ${isPlaying ? 'eq-bar' : 'h-1'}`}></div>
+          <div className={`w-1 bg-sky-400 ${isPlaying ? 'eq-bar' : 'h-2'}`}></div>
+          <div className={`w-1 bg-sky-400 ${isPlaying ? 'eq-bar' : 'h-1.5'}`}></div>
+          <div className={`w-1 bg-sky-400 ${isPlaying ? 'eq-bar' : 'h-3'}`}></div>
         </div>
 
         {isDev && (
@@ -92,10 +92,10 @@ export function TTSEngine({
 
         <button
           onClick={() => dispatch(toggleMute())}
-          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition focus:outline-none focus:ring-2 focus:ring-sky-500 ${
+          className={`hidden flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition focus:outline-none focus:ring-2 ${
             isMuted
-              ? 'border border-rose-500/35 bg-rose-500/10 text-rose-600 dark:text-rose-400'
-              : 'text-muted hover:bg-surface-elevated hover:text-foreground'
+              ? 'border border-rose-500/35 bg-rose-500/10 text-rose-600 focus:ring-rose-500 dark:text-rose-400 dark:focus:ring-rose-400'
+              : 'text-muted hover:bg-surface-elevated hover:text-foreground focus:ring-sky-500'
           }`}
           aria-label={isMuted ? 'Unmute' : 'Mute'}
           aria-pressed={isMuted}
