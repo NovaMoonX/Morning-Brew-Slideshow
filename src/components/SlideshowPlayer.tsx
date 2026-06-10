@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useAppDispatch } from '@store/index';
-import { nextSlide, prevSlide, togglePlay } from '@store/slideshowSlice';
+import { useAppDispatch, useAppSelector } from '@store/index';
+import { nextSlide, prevSlide, toggleMute } from '@store/slideshowSlice';
 import type { Slide } from '@lib/models';
 import { SlideBody } from '@components/SlideBody';
+import { PlayIcon, PauseIcon, SpeakerWaveIcon, SpeakerXMarkIcon } from '@components/AudioIcons';
 import { SlideLinkList, filterSectionBodyLinks } from '@components/SlideLinkList';
 import { LinkExplorer } from '@components/LinkExplorer';
 import { LinkCardsSkipButton } from '@components/LinkCardsSkipButton';
@@ -29,6 +30,7 @@ interface SlideshowPlayerProps {
   totalSlides: number;
   tocOpen?: boolean;
   onOpenTableOfContents?: () => void;
+  onTogglePlayback?: () => void;
   extraSlides?: ExtraSlidesMap;
   wordOfDayHtml?: string | null;
   wordOfDay?: string | null;
@@ -99,8 +101,27 @@ function SectionHeader({
   }
 
   return (
-    <div className="absolute top-[4.75rem] left-4 right-6 z-10 md:top-20 md:right-24">
+    <div className="absolute top-4 left-4 right-4 z-10 md:top-6 md:left-6 md:right-6">
       {box}
+    </div>
+  );
+}
+
+function SlideScrollLayout({
+  children,
+  bottomPadding = 'pb-36 md:pb-40',
+}: {
+  children: React.ReactNode;
+  bottomPadding?: string;
+}) {
+  return (
+    <div
+      data-slide-scroll
+      className={`absolute inset-0 overflow-y-auto overscroll-contain bg-background ${bottomPadding}`}
+    >
+      <div className="mx-auto w-full max-w-xl space-y-4 px-6 pt-20 md:px-10 md:pt-[4.5rem]">
+        {children}
+      </div>
     </div>
   );
 }
@@ -113,66 +134,42 @@ function SplitMarketsLayout({ slide }: { slide: Slide }) {
   );
 
   return (
-    <div className="absolute inset-0 flex w-full flex-col bg-background">
-      <div className="shrink-0 px-4 pb-3 pt-20 md:px-10 md:pt-[4.5rem]">
-        <SectionHeader label="MARKETS" title={null} inline />
-        <div className="mt-2 max-h-[42vh] overflow-y-auto overscroll-contain">
-          <MarketsTable tickers={tickers} compact />
-        </div>
-      </div>
-
-      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-6 pb-36 pt-1 md:px-10 md:pb-40">
-        <div className="mx-auto w-full max-w-xl">
-          {commentaryHtml ? (
-            <SlideBody slide={commentarySlide} className="text-sm md:text-base" />
-          ) : (
-            <p className="text-sm text-muted">No market commentary for today.</p>
-          )}
-        </div>
-      </div>
-    </div>
+    <SlideScrollLayout>
+      <SectionHeader label="MARKETS" title={null} inline />
+      <MarketsTable tickers={tickers} compact />
+      {commentaryHtml ? (
+        <SlideBody slide={commentarySlide} className="text-sm md:text-base" />
+      ) : (
+        <p className="text-sm text-muted">No market commentary for today.</p>
+      )}
+    </SlideScrollLayout>
   );
 }
 
 function SplitImageLayout({
   imageUrl,
-  topOverlay,
+  header,
   children,
   bottomPadding = 'pb-36 md:pb-40',
-  scrollable = true,
 }: {
   imageUrl: string;
-  topOverlay?: React.ReactNode;
+  header?: React.ReactNode;
   children: React.ReactNode;
   bottomPadding?: string;
-  scrollable?: boolean;
 }) {
   return (
-    <div className="absolute inset-0 flex flex-col bg-background">
-      <div className="relative h-1/2 w-full shrink-0">
+    <SlideScrollLayout bottomPadding={bottomPadding}>
+      <div className="relative -mx-6 overflow-hidden md:-mx-10">
         <img
           src={imageUrl}
           alt=""
-          className="block h-full w-full object-cover object-top"
+          className="w-full max-h-[min(50vh,420px)] object-cover object-top"
         />
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-background to-transparent" />
-        {topOverlay}
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-background to-transparent" />
+        {header}
       </div>
-
-      <div
-        className={`flex h-1/2 min-h-0 flex-col overflow-hidden bg-gradient-to-b from-background to-background px-6 pt-4 md:px-10 md:pt-6 ${bottomPadding}`}
-      >
-        <div className="mx-auto flex min-h-0 w-full max-w-xl flex-1 flex-col overflow-hidden">
-          {scrollable ? (
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-              <div className="space-y-3 pb-4">{children}</div>
-            </div>
-          ) : (
-            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{children}</div>
-          )}
-        </div>
-      </div>
-    </div>
+      <div className="space-y-3">{children}</div>
+    </SlideScrollLayout>
   );
 }
 
@@ -183,6 +180,7 @@ export function SlideshowPlayer({
   totalSlides,
   tocOpen = false,
   onOpenTableOfContents,
+  onTogglePlayback,
   extraSlides = {},
   wordOfDayHtml = null,
   wordOfDay = null,
@@ -190,6 +188,9 @@ export function SlideshowPlayer({
   onExit,
 }: SlideshowPlayerProps) {
   const dispatch = useAppDispatch();
+  const playerRef = useRef<HTMLDivElement>(null);
+  const isPlaying = useAppSelector((state) => state.slideshow.isPlaying);
+  const isMuted = useAppSelector((state) => state.slideshow.isMuted);
   const percentage = totalSlides > 0 ? ((currentIndex + 1) / totalSlides) * 100 : 0;
   const mainLastIndex = useMemo(() => getMainDeckLastIndex(slides), [slides]);
 
@@ -211,14 +212,11 @@ export function SlideshowPlayer({
     if (x < width * 0.3) {
       dispatch(prevSlide());
     } else if (x > width * 0.7) {
-      if (slide.type === 'cover') {
-        dispatch(togglePlay(true));
-      }
       if (slide.type !== 'extras_hub' && slide.type !== 'end') {
         dispatch(nextSlide({ totalSlides, mainLastIndex }));
       }
     } else {
-      dispatch(togglePlay());
+      onTogglePlayback?.();
     }
   };
 
@@ -278,6 +276,14 @@ export function SlideshowPlayer({
   }, [slide.id]);
 
   useEffect(() => {
+    playerRef.current
+      ?.querySelectorAll('[data-slide-scroll]')
+      .forEach((element) => {
+        (element as HTMLElement).scrollTop = 0;
+      });
+  }, [slide.id]);
+
+  useEffect(() => {
     if (slide.type !== 'link_cards') {
       return;
     }
@@ -333,6 +339,7 @@ export function SlideshowPlayer({
 
   return (
     <div
+      ref={playerRef}
       onClick={handleTap}
       className="relative flex h-full w-full cursor-pointer flex-col bg-background text-foreground select-none"
     >
@@ -357,7 +364,7 @@ export function SlideshowPlayer({
       {usesIntroSplitLayout && (
         <SplitImageLayout
           imageUrl={slide.image_url!}
-          topOverlay={
+          header={
             <SectionHeader label="Today's Overview" title={slide.title || null} />
           }
         >
@@ -368,47 +375,42 @@ export function SlideshowPlayer({
       {usesMarketsLayout && <SplitMarketsLayout slide={slide} />}
 
       {usesBriefCardsLayout && (
-        <div className="absolute inset-0 flex flex-col overflow-hidden bg-background px-4 pb-28 pt-20 md:px-8 md:pb-32 md:pt-[4.5rem]">
-          <div className="mx-auto flex min-h-0 w-full max-w-xl flex-1 flex-col">
-            <span className="shrink-0 text-xs font-bold uppercase tracking-wider text-sky-500">
-              {sectionLabel}
-            </span>
-            <h2 className="mt-2 shrink-0 text-xl font-extrabold leading-tight text-foreground md:text-2xl">
-              {slide.title}
-            </h2>
-            <div className="mt-4 min-h-0 flex-1 overflow-y-auto overscroll-contain">
-              <BriefCardsList links={slide.links} />
-            </div>
-            <div className="pointer-events-auto shrink-0 space-y-2 pt-4">
-              <p className="text-center text-xs font-semibold tracking-wider text-muted-soft">
-                SLIDE {currentIndex + 1} OF {totalSlides}
-              </p>
-              <button
-                type="button"
-                onClick={(event) => {
-                  event.stopPropagation();
-                  dispatch(nextSlide({ totalSlides, mainLastIndex }));
-                }}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-sky-600 px-8 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-lg transition hover:bg-sky-500"
-              >
-                Next step
-                <span aria-hidden>→</span>
-              </button>
-            </div>
+        <SlideScrollLayout bottomPadding="pb-28 md:pb-32">
+          <span className="text-xs font-bold uppercase tracking-wider text-sky-500">
+            {sectionLabel}
+          </span>
+          <h2 className="text-xl font-extrabold leading-tight text-foreground md:text-2xl">
+            {slide.title}
+          </h2>
+          <BriefCardsList links={slide.links} />
+          <div className="pointer-events-auto space-y-2 pt-4">
+            <p className="text-center text-xs font-semibold tracking-wider text-muted-soft">
+              SLIDE {currentIndex + 1} OF {totalSlides}
+            </p>
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                dispatch(nextSlide({ totalSlides, mainLastIndex }));
+              }}
+              className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-sky-600 px-8 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-lg transition hover:bg-sky-500"
+            >
+              Next step
+              <span aria-hidden>→</span>
+            </button>
           </div>
-        </div>
+        </SlideScrollLayout>
       )}
 
       {usesSectionLayout && (
         <SplitImageLayout
           imageUrl={sectionImageUrl!}
-          topOverlay={
+          header={
             slide.type === 'section_hero' ? undefined : (
               <SectionHeader label={sectionLabel} title={sectionTitle} />
             )
           }
           bottomPadding={showSkipButton ? 'pb-20 md:pb-24' : 'pb-36 md:pb-40'}
-          scrollable={slide.type !== 'link_cards'}
         >
           {slide.type === 'section_hero' && (
             <SectionHeroCountdown
@@ -491,24 +493,25 @@ export function SlideshowPlayer({
       )}
 
       {usesEndLayout && (
-        <div className="absolute inset-0 z-10 flex flex-col bg-background">
-          <div className="relative h-1/3 w-full shrink-0">
+        <SlideScrollLayout bottomPadding="pb-36 md:pb-40">
+          <div className="relative -mx-6 overflow-hidden md:-mx-10">
             <img
               src={backgroundImage}
               alt=""
-              className="block h-full w-full object-cover object-center"
+              className="w-full max-h-[min(40vh,320px)] object-cover object-center"
             />
             <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-background to-transparent" />
           </div>
-          <div className="flex min-h-0 flex-1 flex-col justify-center">
-            <IssueEndSlide title={slide.title} body={slide.body} />
-          </div>
-        </div>
+          <IssueEndSlide title={slide.title} body={slide.body} />
+        </SlideScrollLayout>
       )}
 
       {!usesSplitLayout && !usesEndLayout && !usesExtrasHubLayout && (
-        <div className="relative z-10 flex h-full w-full flex-col px-6 pt-16 pb-28 md:px-8">
-          <div className="flex min-h-0 flex-1 flex-col justify-center overflow-y-auto">
+        <div
+          data-slide-scroll
+          className="absolute inset-0 z-10 overflow-y-auto overscroll-contain px-6 pt-16 pb-28 md:px-8"
+        >
+          <div className="mx-auto flex min-h-full max-w-lg flex-col justify-center">
             {slide.type === 'cover' && (
               <div className="mx-auto max-w-lg space-y-6 text-center">
                 <span className="text-xs font-bold uppercase tracking-widest text-sky-500">
@@ -518,9 +521,7 @@ export function SlideshowPlayer({
                   {slide.title}
                 </h1>
                 <div className="mx-auto h-0.5 w-12 bg-sky-500" />
-                <p className="text-sm font-medium text-muted">
-                  Tap right to begin • Tap center to pause audio
-                </p>
+                <p className="text-sm font-medium text-muted">Tap right to begin</p>
                 {onOpenTableOfContents && (
                   <button
                     type="button"
@@ -547,6 +548,45 @@ export function SlideshowPlayer({
                     Table of Contents
                   </button>
                 )}
+                <div className="flex w-full justify-center pt-2">
+                  <button
+                    type="button"
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onTogglePlayback?.();
+                  }}
+                    className="pointer-events-auto inline-flex size-16 items-center justify-center rounded-full bg-sky-600 text-white shadow-xl shadow-sky-600/25 transition hover:bg-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-2 focus:ring-offset-background"
+                    aria-label={isPlaying ? 'Pause' : 'Play'}
+                  >
+                    {isPlaying ? (
+                      <PauseIcon className="size-7" />
+                    ) : (
+                      <PlayIcon className="size-7 ml-0.5" />
+                    )}
+                  </button>
+                </div>
+                <div className="hidden flex w-full justify-center">
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      dispatch(toggleMute());
+                    }}
+                    className={`pointer-events-auto inline-flex size-10 items-center justify-center rounded-full transition focus:outline-none focus:ring-2 ${
+                      isMuted
+                        ? 'border border-rose-500/35 bg-rose-500/10 text-rose-600 focus:ring-rose-500 dark:text-rose-400 dark:focus:ring-rose-400'
+                        : 'text-muted hover:bg-surface-elevated hover:text-foreground focus:ring-sky-500'
+                    }`}
+                    aria-label={isMuted ? 'Unmute' : 'Mute'}
+                    aria-pressed={isMuted}
+                  >
+                    {isMuted ? (
+                      <SpeakerXMarkIcon className="size-5" />
+                    ) : (
+                      <SpeakerWaveIcon className="size-5" />
+                    )}
+                  </button>
+                </div>
               </div>
             )}
 

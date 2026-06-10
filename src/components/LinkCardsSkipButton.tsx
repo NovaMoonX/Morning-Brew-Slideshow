@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useAppDispatch } from '@store/index';
+import { useAppDispatch, useAppSelector } from '@store/index';
 import { nextSlide } from '@store/slideshowSlice';
 import { linkCardDurationMs } from '@lib/slideshow/timing';
 
@@ -21,6 +21,7 @@ export function LinkCardsSkipButton({
   paused = false,
 }: LinkCardsSkipButtonProps) {
   const dispatch = useAppDispatch();
+  const isPlaying = useAppSelector((state) => state.slideshow.isPlaying);
   const totalSeconds = Math.max(1, Math.ceil(durationMs / 1000));
   const [secondsLeft, setSecondsLeft] = useState(totalSeconds);
   const advancedRef = useRef(false);
@@ -73,19 +74,24 @@ export function LinkCardsSkipButton({
     deadlineRef.current = Date.now() + durationMs;
     setSecondsLeft(totalSeconds);
     clearTimers();
+
+    if (!isPlaying) {
+      return;
+    }
+
     startTimers();
     return clearTimers;
-  }, [slideId, durationMs, totalSeconds, clearTimers, startTimers]);
+  }, [slideId, durationMs, totalSeconds, clearTimers, startTimers, isPlaying]);
 
   useEffect(() => {
-    if (paused) {
+    if (!isPlaying || paused) {
       clearTimers();
       return;
     }
     if (!advancedRef.current && getRemainingMs() > 0) {
       startTimers();
     }
-  }, [paused, clearTimers, getRemainingMs, startTimers]);
+  }, [paused, isPlaying, clearTimers, getRemainingMs, startTimers]);
 
   const handleSkip = (event: React.MouseEvent) => {
     event.stopPropagation();

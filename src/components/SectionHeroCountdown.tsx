@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
-import { useAppDispatch } from '@store/index';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { useAppDispatch, useAppSelector } from '@store/index';
 import { nextSlide } from '@store/slideshowSlice';
 import { SECTION_HERO_DURATION_MS } from '@lib/slideshow/timing';
 
@@ -21,39 +21,80 @@ export function SectionHeroCountdown({
   durationMs = SECTION_HERO_DURATION_MS,
 }: SectionHeroCountdownProps) {
   const dispatch = useAppDispatch();
+  const isPlaying = useAppSelector((state) => state.slideshow.isPlaying);
   const totalSeconds = Math.max(1, Math.ceil(durationMs / 1000));
   const [secondsLeft, setSecondsLeft] = useState(totalSeconds);
   const advancedRef = useRef(false);
+  const deadlineRef = useRef(Date.now() + durationMs);
+  const tickTimerRef = useRef<number | null>(null);
+  const advanceTimerRef = useRef<number | null>(null);
 
-  useEffect(() => {
-    advancedRef.current = false;
-    setSecondsLeft(totalSeconds);
-    const startedAt = Date.now();
+  const clearTimers = useCallback(() => {
+    if (tickTimerRef.current !== null) {
+      window.clearInterval(tickTimerRef.current);
+      tickTimerRef.current = null;
+    }
+    if (advanceTimerRef.current !== null) {
+      window.clearTimeout(advanceTimerRef.current);
+      advanceTimerRef.current = null;
+    }
+  }, []);
 
-    const tickTimer = window.setInterval(() => {
-      const elapsed = Date.now() - startedAt;
-      const remainingMs = Math.max(0, durationMs - elapsed);
-      const displaySeconds = remainingMs === 0 ? 0 : Math.ceil(remainingMs / 1000);
-      setSecondsLeft(displaySeconds);
-    }, 50);
+  const getRemainingMs = useCallback(
+    () => Math.max(0, deadlineRef.current - Date.now()),
+    [],
+  );
 
-    const advanceTimer = window.setTimeout(() => {
+  const startTimers = useCallback(() => {
+    clearTimers();
+    const remainingMs = getRemainingMs();
+    if (remainingMs <= 0 || advancedRef.current) {
+      return;
+    }
+
+    const updateDisplay = () => {
+      const left = getRemainingMs();
+      setSecondsLeft(left === 0 ? 0 : Math.ceil(left / 1000));
+    };
+
+    updateDisplay();
+    tickTimerRef.current = window.setInterval(updateDisplay, 50);
+    advanceTimerRef.current = window.setTimeout(() => {
       if (advancedRef.current) {
         return;
       }
       advancedRef.current = true;
       setSecondsLeft(0);
       dispatch(nextSlide({ totalSlides, mainLastIndex }));
-    }, durationMs);
+    }, remainingMs);
+  }, [clearTimers, dispatch, getRemainingMs, mainLastIndex, totalSlides]);
 
-    return () => {
-      window.clearInterval(tickTimer);
-      window.clearTimeout(advanceTimer);
-    };
-  }, [slideId, durationMs, totalSeconds, dispatch, totalSlides]);
+  useEffect(() => {
+    advancedRef.current = false;
+    deadlineRef.current = Date.now() + durationMs;
+    setSecondsLeft(totalSeconds);
+    clearTimers();
+
+    if (!isPlaying) {
+      return;
+    }
+
+    startTimers();
+    return clearTimers;
+  }, [slideId, durationMs, totalSeconds, clearTimers, startTimers, isPlaying]);
+
+  useEffect(() => {
+    if (!isPlaying) {
+      clearTimers();
+      return;
+    }
+    if (!advancedRef.current && getRemainingMs() > 0) {
+      startTimers();
+    }
+  }, [isPlaying, clearTimers, getRemainingMs, startTimers]);
 
   return (
-    <div className="flex min-h-[14rem] flex-col items-center justify-center px-4 py-4 text-center">
+    <div className="flex flex-col items-center px-4 py-8 text-center">
       <span className="text-xs font-bold uppercase tracking-[0.25em] text-sky-400">
         {sectionLabel}
       </span>
@@ -62,12 +103,18 @@ export function SectionHeroCountdown({
           {sectionTitle}
         </h2>
       )}
-      <p className="mt-6 text-xs font-semibold uppercase tracking-[0.2em] text-muted">
-        Story starts in
-      </p>
-      <p className="mt-3 text-7xl font-extrabold tabular-nums leading-none text-sky-400 md:text-8xl">
-        {secondsLeft}
-      </p>
+      {isPlaying ? (
+        <>
+          <p className="mt-6 text-xs font-semibold uppercase tracking-[0.2em] text-muted">
+            Story starts in
+          </p>
+          <p className="mt-3 text-7xl font-extrabold tabular-nums leading-none text-sky-400 md:text-8xl">
+            {secondsLeft}
+          </p>
+        </>
+      ) : (
+        <p className="mt-6 text-sm text-muted">Tap play when you&apos;re ready to continue.</p>
+      )}
     </div>
   );
 }
