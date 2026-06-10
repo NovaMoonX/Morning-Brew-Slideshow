@@ -2,7 +2,18 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/logo.svg" />
+    <script>
+      (function () {
+        var saved = localStorage.getItem('theme');
+        var prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+        if (saved === 'dark' || (!saved && prefersDark)) {
+          document.documentElement.classList.add('dark');
+        }
+      })();
+    </script>
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <meta name="theme-color" content="#f8fafc" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Morning Brew Slideshow</title>
 
@@ -10,7 +21,7 @@
     <meta name="title" content="Morning Brew Slideshow" />
     <meta
       name="description"
-      content=""
+      content="Morning Brew transformed into an interactive audio slideshow with progressive enrichment."
     />
 
     <!-- Open Graph / Facebook -->
@@ -19,7 +30,7 @@
     <meta property="og:title" content="Morning Brew Slideshow" />
     <meta
       property="og:description"
-      content=""
+      content="Morning Brew transformed into an interactive audio slideshow with progressive enrichment."
     />
     <meta
       property="og:image"
@@ -28,14 +39,14 @@
 
     <!-- Twitter -->
     <meta property="twitter:card" content="summary_large_image" />
-    <meta property="twitter:url" content="https://morning-brew-slideshow.web.app" />
     <meta
-      property="twitter:title"
-      content="Morning Brew Slideshow"
+      property="twitter:url"
+      content="https://morning-brew-slideshow.web.app"
     />
+    <meta property="twitter:title" content="Morning Brew Slideshow" />
     <meta
       property="twitter:description"
-      content=""
+      content="Morning Brew transformed into an interactive audio slideshow with progressive enrichment."
     />
     <meta
       property="twitter:image"

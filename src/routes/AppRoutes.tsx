@@ -1,6 +1,6 @@
 import { createBrowserRouter } from 'react-router-dom';
-
 import Home from '@screens/Home';
+import SlideshowPage from '@screens/SlideshowPage';
 import Layout from '@ui/Layout';
 import Loading from '@ui/Loading';
 
@@ -12,6 +12,10 @@ export const router = createBrowserRouter([
       {
         index: true,
         element: <Home />,
+      },
+      {
+        path: 'issue/:date',
+        element: <SlideshowPage />,
       },
       // About page (lazy loaded)
       {

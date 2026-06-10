@@ -3,9 +3,11 @@
 ## Core Development Rules
 
 ### 1. Component Creation
+
 - Use `export function ComponentName` syntax (NOT `React.FC` or arrow functions)
 
 ### 2. Return Value Debugging
+
 - Always store return values in variables before returning them for easier debugging
 - This applies to all callbacks, computed values, and complex expressions
 
@@ -13,24 +15,24 @@
 // ❌ Hard to debug - direct return
 const answeredCount = useMemo(() => {
   if (!selectedApartment) return 0;
-  return allQuestions.filter(
-    (q) => getAnswer(q.id, selectedApartment) !== '',
-  ).length;
+  return allQuestions.filter((q) => getAnswer(q.id, selectedApartment) !== '')
+    .length;
 }, [allQuestions, selectedApartment, getAnswer]);
 
 // ✅ Easy to debug - store in variable first
 const answeredCount = useMemo(() => {
   if (!selectedApartment) return 0;
-  
+
   const result = allQuestions.filter(
     (q) => getAnswer(q.id, selectedApartment) !== '',
   ).length;
-  
+
   return result;
 }, [allQuestions, selectedApartment, getAnswer]);
 ```
 
 ### 3. Styling & Class Names
+
 - Use TailwindCSS exclusively
 - **ALWAYS** use `join` from `@moondreamsdev/dreamer-ui/utils` for conditional class names
 - **NEVER** use template literals with `${` for className - always use `join()` instead
@@ -41,11 +43,13 @@ import { join } from '@moondreamsdev/dreamer-ui/utils';
 
 export function Test({ variant, className }: TestProps) {
   return (
-    <div 
+    <div
       className={join(
-        'px-4 py-2 rounded',
-        variant === 'primary' ? 'bg-primary text-primary-foreground' : 'bg-secondary',
-        className
+        'rounded px-4 py-2',
+        variant === 'primary'
+          ? 'bg-primary text-primary-foreground'
+          : 'bg-secondary',
+        className,
       )}
     >
       Click me
@@ -55,6 +59,7 @@ export function Test({ variant, className }: TestProps) {
 ```
 
 **❌ NEVER DO THIS:**
+
 ```tsx
 // Bad - template literals for conditional classes
 className={`base-class ${condition ? 'conditional-class' : ''}`}
@@ -62,6 +67,7 @@ className={`base-class ${isActive ? 'active' : 'inactive'}`}
 ```
 
 **✅ ALWAYS DO THIS:**
+
 ```tsx
 // Good - use join() for all conditional classes
 className={join('base-class', condition && 'conditional-class')}
@@ -69,12 +75,15 @@ className={join('base-class', isActive ? 'active' : 'inactive')}
 ```
 
 ### 4. Component Library Priority
+
 - Always check Dreamer UI first before creating custom components
 - Import from `@moondreamsdev/dreamer-ui/components`, `/hooks`, `/symbols`, `/utils`
 - Always check existing props of Dream UI components before setting custom styles
 
 ### 5. File Structure
+
 Follow the existing structure:
+
 ```
 src/
 ├── components/ # Reusable UI components
@@ -90,6 +99,7 @@ src/
 ```
 
 ### 6. Import Patterns
+
 ```tsx
 // Dreamer UI imports
 import { Button } from '@moondreamsdev/dreamer-ui/components';
@@ -109,6 +119,7 @@ import { helper } from '@utils/helper';
 ```
 
 ### 7. Available Import Aliases
+
 - `@/` → `src/`
 - `@components/` → `src/components/`
 - `@contexts/` → `src/contexts/`
@@ -122,6 +133,7 @@ import { helper } from '@utils/helper';
 - `@utils/` → `src/utils/`
 
 ## Quick Reference
+
 - Component syntax: `export function ComponentName`
 - **Class names: ALWAYS use `join()` for conditionals - NEVER template literals**
 - Check Dreamer UI first
@@ -129,6 +141,7 @@ import { helper } from '@utils/helper';
 - Follow structured folder organization with proper separation of concerns
 
 ## ⚠️ Critical Reminders
+
 - **Template literals with `${` in className are FORBIDDEN**
 - **Always import and use `join` from `@moondreamsdev/dreamer-ui/utils`**
 - **Before writing any conditional className, ask: "Am I using join()?"**

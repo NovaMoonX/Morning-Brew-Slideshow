@@ -1,0 +1,11 @@
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Slide audio clips are publicly readable, upload and modifications are locked down
+    match /audio/{date}/{file} {
+      allow read: if true;
+      allow write: if false;
+    }
+  }
+}

@@ -1,0 +1,16 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Issues and issue lists are publicly readable, writes are restricted to Cloud Functions
+    match /issues/{date} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    match /issue_index/{date} {
+      allow read: if true;
+      allow write: if false;
+    }
+  }
+}

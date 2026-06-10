@@ -1,46 +1,76 @@
-@import "tailwindcss";
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import 'tailwindcss';
 
 @custom-variant dark (&:where(.dark, .dark *));
 
 @utility page {
-	/* use dynamic viewport to handle browser UI (i.e. search bar, keyboard, etc) obscuring viewport */
-  @apply min-h-dvh w-dvw; 
+  @apply min-h-dvh w-dvw overflow-x-hidden;
 }
 
 @theme app {
-	--color-background: var(--color-slate-100);
-	--color-foreground: var(--color-slate-900);
+  --color-background: var(--color-slate-50);
+  --color-foreground: var(--color-slate-900);
+  --color-surface: #ffffff;
+  --color-surface-elevated: var(--color-slate-100);
+  --color-surface-glass: rgb(255 255 255 / 0.92);
+  --color-surface-overlay: rgb(255 255 255 / 0.58);
+  --color-surface-muted: var(--color-slate-100);
+  --color-border: var(--color-slate-200);
+  --color-border-strong: var(--color-slate-300);
+  --color-muted: var(--color-slate-600);
+  --color-muted-soft: var(--color-slate-500);
+  --color-accent: var(--color-sky-500);
 }
 
-/* Override the variables to create a dark theme */
 .dark {
-	--color-background: var(--color-slate-900);
-	--color-foreground: var(--color-slate-100);
+  --color-background: var(--color-slate-950);
+  --color-foreground: var(--color-slate-50);
+  --color-surface: var(--color-slate-900);
+  --color-surface-elevated: var(--color-slate-900);
+  --color-surface-glass: rgb(2 6 23 / 0.78);
+  --color-surface-overlay: rgb(2 6 23 / 0.62);
+  --color-surface-muted: var(--color-slate-900);
+  --color-border: var(--color-slate-800);
+  --color-border-strong: var(--color-slate-700);
+  --color-muted: var(--color-slate-400);
+  --color-muted-soft: var(--color-slate-500);
+  --color-accent: var(--color-sky-400);
 }
 
 #root {
   @apply page bg-background text-foreground;
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
 }
 
 body {
+  margin: 0;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 html {
-	@apply bg-background
+  @apply bg-background scroll-smooth;
 }
 
-/* Smooth height transitions for when keyboard appears on mobile */
-html, body {
-  transition: height 0.3s ease;
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
+@keyframes eq-bounce {
+  0%, 100% { transform: scaleY(0.3); }
+  50% { transform: scaleY(1); }
+}
 
-/* Dreamer UI styles */
-@import "@moondreamsdev/dreamer-ui/styles"; /* non-TailwindCSS styles */
-@import './dreamer-ui.css'; /* customizable, theme styles */
+.eq-bar {
+  transform-origin: bottom;
+  animation: eq-bounce 1s ease-in-out infinite;
+}
 
-/* for TailwindCSS styles in library to be processed */
-@source "../node_modules/@moondreamsdev/dreamer-ui/dist/**/*.{js,jsx,ts,tsx}";
+.eq-bar:nth-child(2) { animation-delay: 0.15s; }
+.eq-bar:nth-child(3) { animation-delay: 0.3s; }
+.eq-bar:nth-child(4) { animation-delay: 0.45s; }

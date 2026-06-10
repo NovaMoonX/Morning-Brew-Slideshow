@@ -1,0 +1,137 @@
+from datetime import datetime
+from typing import Literal
+
+import http_client
+from firebase_db import PROJECT_ID, get_db
+from parser import MorningBrewParser
+from slide_builder import SlideBuilder
+
+ARCHIVE_BASE_URL = "https://www.morningbrew.com"
+LATEST_ISSUE_URL = f"{ARCHIVE_BASE_URL}/issues/latest"
+FIRESTORE_TIMEOUT_SEC = 30
+IngestMode = Literal['http', 'scheduled']
+
+
+def _log(message: str) -> None:
+    print(f"[ingest] {message}", flush=True)
+
+
+def ingest_latest_issue(
+    *,
+    date_param: str | None = None,
+    force_write: bool = False,
+    mode: IngestMode = 'http',
+) -> tuple[str, int]:
+    """Fetch, parse, build, and persist the latest Morning Brew issue.
+
+    http mode writes status=enriched with inline link enrichment (dev/manual HTTP).
+    scheduled mode writes status=ready and defers enrichment/audio to Firestore triggers.
+    """
+    target_date = date_param
+    url = LATEST_ISSUE_URL
+    if date_param:
+        url = f"{ARCHIVE_BASE_URL}/issues/{date_param}"
+
+    try:
+        _log(f"Firestore project: {PROJECT_ID}")
+        _log(f"Fetching newsletter from {url}")
+        response = http_client.get(url, timeout=15)
+        if response.status_code != 200:
+            return (
+                f"Failed to fetch Morning Brew newsletter from {url}. Status: {response.status_code}",
+                500,
+            )
+
+        _log("Parsing issue HTML")
+        parser = MorningBrewParser()
+        issue = parser.parse_issue(response.text, target_date)
+        actual_date = issue.id
+        _log(f"Parsed issue {actual_date}: {issue.title!r}")
+
+        if not force_write:
+            _log(f"Checking Firestore for existing issue {actual_date}")
+            doc_ref = get_db().collection('issues').document(actual_date)
+            try:
+                exists = doc_ref.get(timeout=FIRESTORE_TIMEOUT_SEC).exists
+            except Exception as firestore_err:
+                _log(f"Firestore read failed: {firestore_err}")
+                return (
+                    "Ingest failed: could not reach Firestore. "
+                    "Run `gcloud auth application-default login` and retry.",
+                    500,
+                )
+            if exists:
+                return f"Issue {actual_date} already exists. Skipping.", 200
+
+        _log("Building slides")
+        builder = SlideBuilder()
+        issue.slides = builder.build_slides(issue)
+        extra_slides = builder.build_extra_slides(issue)
+
+        slides_list = [s.to_dict() for s in issue.slides]
+        issue_status = 'ready' if mode == 'scheduled' else 'enriched'
+
+        if mode == 'http':
+            section_images = {
+                section.id: section.image_url
+                for section in issue.sections
+                if section.image_url
+            }
+            tour_section_ids = {
+                section.id for section in issue.sections if section.is_tour_de_headlines
+            }
+            _log("Enriching link metadata")
+            from link_enrichment import enrich_slide_links
+            enrich_slide_links(
+                slides_list,
+                section_images=section_images,
+                tour_section_ids=tour_section_ids,
+            )
+
+        _log(f"Writing issue {actual_date} to Firestore ({len(slides_list)} slides)")
+        try:
+            issue_dict = issue.to_dict()
+            issue_dict['slides'] = slides_list
+            issue_dict['extra_slides'] = {
+                key: [slide.to_dict() for slide in slide_list]
+                for key, slide_list in extra_slides.items()
+            }
+            issue_dict['status'] = issue_status
+            get_db().collection('issues').document(actual_date).set(
+                issue_dict, timeout=FIRESTORE_TIMEOUT_SEC
+            )
+            get_db().collection('issue_index').document(actual_date).set({
+                'id': actual_date,
+                'date': issue.date,
+                'title': issue.title,
+                'primary_image_url': issue.primary_image_url,
+                'status': issue_status,
+                'fetched_at': datetime.utcnow().isoformat()
+            }, timeout=FIRESTORE_TIMEOUT_SEC)
+        except Exception as firestore_err:
+            _log(f"Firestore write failed: {firestore_err}")
+            return (
+                "Ingest failed: could not write to Firestore. "
+                "Run `gcloud auth application-default login` and retry.",
+                500,
+            )
+
+        _log(f"Done — ingested {actual_date}")
+        return (
+            f"Successfully ingested issue {actual_date}. Total slides: {len(slides_list)}",
+            200,
+        )
+    except Exception as e:
+        _log(f"Failed: {e}")
+        return f"Ingest failed: {str(e)}", 500
+
+
+def handle_ingest_issue(req) -> tuple[str, int]:
+    """Download the latest Morning Brew newsletter and compile slides."""
+    date_param = req.args.get('date')
+    force_write = req.args.get('force') == 'true'
+    return ingest_latest_issue(
+        date_param=date_param,
+        force_write=force_write,
+        mode='http',
+    )

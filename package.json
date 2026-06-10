@@ -5,15 +5,24 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host",
+    "dev:ingest": "cd functions && GCLOUD_PROJECT=morning-brew-slideshow-052126 ./venv/bin/functions-framework --target=ingest_issue --source=dev_server.py --port=8787 --debug",
     "build": "tsc -b && vite build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "deploy:rules:firestore": "firebase deploy --only firestore:rules",
+    "deploy:rules:storage": "firebase deploy --only storage",
+    "deploy:rules": "firebase deploy --only firestore:rules,storage",
+    "deploy:indexes": "firebase deploy --only firestore:indexes",
+    "deploy:functions": "firebase deploy --only functions",
+    "deploy:all": "npm run build && firebase deploy --only firestore:rules,firestore:indexes,storage,functions"
   },
   "dependencies": {
-    "@moondreamsdev/dreamer-ui": "^1.7.26",
+    "@reduxjs/toolkit": "^2.5.1",
     "@vitejs/plugin-react-swc": "^4.3.1",
+    "firebase": "^12.6.0",
     "react": "^19.2.6",
     "react-dom": "^19.2.6",
+    "react-redux": "^9.2.0",
     "react-router-dom": "^7.15.1"
   },
   "devDependencies": {
