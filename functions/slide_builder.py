@@ -132,12 +132,84 @@ class SlideBuilder:
             slides.extend(sec_slides)
             order = next_order
 
+        slides.append(Slide(
+            id=f"end_{order:03d}",
+            type="end",
+            section_id="end",
+            section_label="FIN",
+            title="That's a wrap",
+            body="You've finished today's Morning Brew. See you tomorrow.",
+            image_url=issue.primary_image_url,
+            image_caption=issue.date,
+            links=[],
+            order=order,
+        ))
+
         return slides
 
     def build_section_slides(self, section: ContentSection, start_order: int) -> tuple[List[Slide], int]:
         if section.is_tour_de_headlines:
             return self._build_tour_de_headlines_slides(section, start_order)
+        if section.is_what_else_is_brewing:
+            return self._build_what_else_is_brewing_slides(section, start_order)
         return self._build_standard_section_slides(section, start_order)
+
+    def _brief_card_from_block(self, block: ContentBlock, section_id: str) -> Optional[LinkRef]:
+        primary = block.links[0] if block.links else None
+        headline = (primary.anchor_text if primary else block.text.split('.')[0]).strip()
+        if not headline:
+            return None
+
+        rest = block.text.strip()
+        headline_key = headline.rstrip('.').strip()
+        if headline_key and rest.lower().startswith(headline_key.lower()):
+            rest = rest[len(headline_key):].lstrip(' ,."')
+
+        url = primary.url if primary else ''
+        if url == '#':
+            url = ''
+
+        return LinkRef(
+            url=url,
+            anchor_text=headline,
+            section_id=section_id,
+            og_description=rest or None,
+        )
+
+    def _build_what_else_is_brewing_slides(
+        self,
+        section: ContentSection,
+        start_order: int,
+    ) -> tuple[List[Slide], int]:
+        slides = []
+        order = start_order
+        sec_id = section.id
+
+        card_links: List[LinkRef] = []
+        for block in section.content_blocks:
+            if block.type != 'bullet':
+                continue
+            card = self._brief_card_from_block(block, sec_id)
+            if card:
+                card_links.append(card)
+
+        if not card_links:
+            return slides, order
+
+        slides.append(Slide(
+            id=f"{sec_id}_brief_{order:03d}",
+            type="brief_cards",
+            section_id=sec_id,
+            section_label=section.category,
+            title=section.title,
+            body=f"{len(card_links)} more headlines",
+            links=card_links,
+            image_url=section.image_url,
+            order=order,
+        ))
+        order += 1
+
+        return slides, order
 
     def _build_tour_de_headlines_slides(
         self,
@@ -369,16 +441,17 @@ class SlideBuilder:
                     seen_urls.add(link.url)
                     deduped_links.append(link)
 
-            slides.append(Slide(
-                id=f"{sec_id}_links_{order:03d}",
-                type="link_cards",
-                section_id=sec_id,
-                section_label="EXPLORE MORE",
-                title="Want to know more?",
-                body="",
-                links=deduped_links,
-                order=order
-            ))
-            order += 1
+            if deduped_links:
+                slides.append(Slide(
+                    id=f"{sec_id}_links_{order:03d}",
+                    type="link_cards",
+                    section_id=sec_id,
+                    section_label="EXPLORE MORE",
+                    title="Want to know more?",
+                    body="",
+                    links=deduped_links,
+                    order=order
+                ))
+                order += 1
 
         return slides, order

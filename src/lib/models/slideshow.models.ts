@@ -18,7 +18,9 @@ export type SlideType =
   | 'section_hero'
   | 'body'
   | 'bullet'
-  | 'link_cards';
+  | 'link_cards'
+  | 'brief_cards'
+  | 'end';
 
 export interface Slide {
   id: string;

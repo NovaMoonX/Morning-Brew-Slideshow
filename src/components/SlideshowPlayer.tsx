@@ -9,6 +9,7 @@ import { LinkCardsSkipButton } from '@components/LinkCardsSkipButton';
 import { MarketsTable, parseMarketsSlide } from '@components/MarketsTable';
 import { SectionHeroCountdown } from '@components/SectionHeroCountdown';
 import { IssueEndSlide } from '@components/IssueEndSlide';
+import { BriefCardsList } from '@components/BriefCardsList';
 import {
   getSectionContext,
   resolveSlideImage,
@@ -235,6 +236,7 @@ export function SlideshowPlayer({
     });
   }, [slide.type, visibleLinkCount, slides, currentIndex]);
   const usesEndLayout = slide.type === 'end';
+  const usesBriefCardsLayout = slide.type === 'brief_cards';
   const usesSectionLayout =
     Boolean(sectionImageUrl) &&
     (slide.type === 'section_hero' ||
@@ -244,7 +246,11 @@ export function SlideshowPlayer({
   const usesIntroSplitLayout = slide.type === 'intro' && Boolean(slide.image_url);
   const usesMarketsLayout = slide.type === 'markets';
   const usesSplitLayout =
-    usesSectionLayout || usesIntroSplitLayout || usesMarketsLayout || (slide.type === 'link_cards' && isBlankLinkTail);
+    usesSectionLayout ||
+    usesIntroSplitLayout ||
+    usesMarketsLayout ||
+    usesBriefCardsLayout ||
+    (slide.type === 'link_cards' && isBlankLinkTail);
   const showSkipButton = slide.type === 'link_cards' && visibleLinkCount > 0 && !isBlankLinkTail;
   const [linkCardsPaused, setLinkCardsPaused] = useState(false);
   const pausedForTocRef = useRef(false);
@@ -313,7 +319,7 @@ export function SlideshowPlayer({
       onClick={handleTap}
       className="relative flex h-full w-full cursor-pointer flex-col bg-background text-foreground select-none"
     >
-      {!usesSplitLayout && (
+      {!usesSplitLayout && !usesEndLayout && (
         <div className="absolute inset-0 z-0">
           <img
             src={backgroundImage}
@@ -343,6 +349,22 @@ export function SlideshowPlayer({
       )}
 
       {usesMarketsLayout && <SplitMarketsLayout slide={slide} />}
+
+      {usesBriefCardsLayout && (
+        <div className="absolute inset-0 flex flex-col overflow-hidden bg-background px-4 pb-36 pt-20 md:px-8 md:pb-40 md:pt-[4.5rem]">
+          <div className="mx-auto flex min-h-0 w-full max-w-xl flex-1 flex-col">
+            <span className="shrink-0 text-xs font-bold uppercase tracking-wider text-sky-500">
+              {sectionLabel}
+            </span>
+            <h2 className="mt-2 shrink-0 text-xl font-extrabold leading-tight text-foreground md:text-2xl">
+              {slide.title}
+            </h2>
+            <div className="mt-4 min-h-0 flex-1 overflow-y-auto overscroll-contain">
+              <BriefCardsList links={slide.links} />
+            </div>
+          </div>
+        </div>
+      )}
 
       {usesSectionLayout && (
         <SplitImageLayout

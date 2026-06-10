@@ -157,6 +157,7 @@ def enrich_issue(event: firestore_fn.Event[firestore_fn.DocumentSnapshot | None]
                     image_url=sec.get('image_url'),
                     image_caption=sec.get('image_caption'),
                     is_tour_de_headlines=sec.get('is_tour_de_headlines', False),
+                    is_what_else_is_brewing=sec.get('is_what_else_is_brewing', False),
                 ))
 
             brew_tickers = [

@@ -21,7 +21,7 @@ export function TTSEngine({
   
   const { activeMode } = useTTS({ slide, totalSlides, isAudioReady });
 
-  if (!slide || slide.type === 'link_cards') {
+  if (!slide || slide.type === 'link_cards' || slide.type === 'end') {
     return null;
   }
 

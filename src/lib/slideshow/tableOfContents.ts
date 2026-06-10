@@ -53,6 +53,26 @@ export function buildTableOfContents(slides: Slide[]): TocEntry[] {
       continue;
     }
 
+    if (slide.type === 'end') {
+      entries.push({
+        slideIndex: index,
+        label: 'Fin',
+        title: slide.title || "That's a wrap",
+        indent: 0,
+      });
+      continue;
+    }
+
+    if (slide.type === 'brief_cards') {
+      entries.push({
+        slideIndex: index,
+        label: slide.section_label,
+        title: slide.title,
+        indent: 0,
+      });
+      continue;
+    }
+
     if (slide.id.includes('_headline_') && slide.title) {
       entries.push({
         slideIndex: index,

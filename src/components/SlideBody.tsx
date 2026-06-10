@@ -39,6 +39,19 @@ export function SlideBody({ slide, className = '' }: SlideBodyProps) {
 }
 
 export function speakableText(slide: Slide): string {
+  if (slide.type === 'brief_cards') {
+    const parts = [slide.title?.trim()].filter(Boolean);
+    for (const link of slide.links) {
+      const headline = link.anchor_text?.trim() || link.og_title?.trim();
+      const detail = link.og_description?.trim() || link.gemini_summary?.trim();
+      if (headline && detail) {
+        parts.push(`${headline}. ${detail}`);
+      } else if (headline) {
+        parts.push(headline);
+      }
+    }
+    return parts.join('. ');
+  }
   if (slide.id.includes('_headline_') && slide.title?.trim()) {
     const body = slide.body?.trim() ?? '';
     return body ? `${slide.title}. ${body}` : slide.title;

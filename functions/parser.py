@@ -64,14 +64,30 @@ class MorningBrewParser:
 
         # 4. Parse Sections
         sections = []
-        # Find all story container elements
-        story_divs = body_soup.find_all(class_='story-container')
-        
-        # Fallback if class not c6/story-container
-        if not story_divs:
-            story_divs = body_soup.find_all('div', class_=re.compile(r'(c6|story)'))
+        story_roots: List = []
+        seen_roots = set()
 
-        for index, div in enumerate(story_divs):
+        for div in body_soup.find_all(class_='story-container'):
+            root_id = id(div)
+            if root_id not in seen_roots:
+                seen_roots.add(root_id)
+                story_roots.append(div)
+
+        for container in body_soup.find_all(class_='story-content-container'):
+            root_id = id(container)
+            if root_id not in seen_roots:
+                seen_roots.add(root_id)
+                story_roots.append(container)
+
+        # Fallback if class not c6/story-container
+        if not story_roots:
+            for div in body_soup.find_all('div', class_=re.compile(r'(c6|story)')):
+                root_id = id(div)
+                if root_id not in seen_roots:
+                    seen_roots.add(root_id)
+                    story_roots.append(div)
+
+        for index, div in enumerate(story_roots):
             section = self._parse_section(div, f"sec_{index:03d}")
             if section:
                 # Filter unwanted sections
@@ -102,6 +118,9 @@ class MorningBrewParser:
 
     def _is_tour_de_headlines(self, title: str) -> bool:
         return 'tour de headlines' in title.strip().lower()
+
+    def _is_what_else_is_brewing(self, title: str) -> bool:
+        return 'what else is brewing' in title.strip().lower()
 
     def _parse_section(self, div_soup, section_id: str) -> Optional[ContentSection]:
         # Category label
@@ -179,11 +198,13 @@ class MorningBrewParser:
             return None
 
         is_tour = self._is_tour_de_headlines(title)
+        is_brewing = self._is_what_else_is_brewing(title)
 
         # Heuristic splitting flag
         # Splits World Roundup/News briefs roundups
         needs_split = (
             not is_tour and
+            not is_brewing and
             len([b for b in blocks if b.type == 'bullet']) > 4 and
             len([b for b in blocks if b.type == 'subheading']) == 0 and
             category.upper() in ['WORLD', 'NEWS', 'ANOTHER LAYER']
@@ -199,6 +220,7 @@ class MorningBrewParser:
             is_sponsored=False,
             needs_gemini_split=needs_split,
             is_tour_de_headlines=is_tour,
+            is_what_else_is_brewing=is_brewing,
         )
 
     def _content_block_from_element(self, child, section_id: str, section_title: str) -> ContentBlock:

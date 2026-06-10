@@ -20,6 +20,8 @@ const ALLOWED_SLIDE_TYPES: SlideType[] = [
   'body',
   'bullet',
   'link_cards',
+  'brief_cards',
+  'end',
 ];
 
 function asText(value: unknown, fallback = '') {

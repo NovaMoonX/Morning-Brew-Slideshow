@@ -1,10 +1,16 @@
 export const SECTION_HERO_DURATION_MS = 5000;
 export const LINK_CARD_SECONDS_PER_LINK = 6;
+export const BRIEF_CARD_SECONDS_PER_ITEM = 5;
 export const MIN_READ_DURATION_MS = 3500;
 
 export function linkCardDurationMs(linkCount: number): number {
   const count = Math.max(1, linkCount);
   return count * LINK_CARD_SECONDS_PER_LINK * 1000;
+}
+
+export function briefCardsDurationMs(itemCount: number): number {
+  const count = Math.max(1, itemCount);
+  return count * BRIEF_CARD_SECONDS_PER_ITEM * 1000;
 }
 
 export function estimateDurationMs(text: string): number {

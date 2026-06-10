@@ -19,7 +19,7 @@ class LinkRef:
 @dataclass
 class Slide:
     id: str
-    type: str  # 'cover' | 'intro' | 'markets' | 'section_hero' | 'body' | 'bullet' | 'link_cards'
+    type: str  # 'cover' | 'intro' | 'markets' | 'section_hero' | 'body' | 'bullet' | 'link_cards' | 'brief_cards' | 'end'
     section_id: str
     section_label: str
     title: str
@@ -77,6 +77,7 @@ class ContentSection:
     is_sponsored: bool = False
     needs_gemini_split: bool = False
     is_tour_de_headlines: bool = False
+    is_what_else_is_brewing: bool = False
 
     def to_dict(self):
         result = asdict(self)

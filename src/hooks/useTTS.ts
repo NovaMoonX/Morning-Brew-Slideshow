@@ -110,8 +110,8 @@ export function useTTS({ slide, totalSlides }: UseTTSProps) {
       return;
     }
 
-    if (activeSlide.type === 'section_hero') {
-      // SectionHeroCountdown owns auto-advance timing for hero slides.
+    if (activeSlide.type === 'section_hero' || activeSlide.type === 'end') {
+      // Hero countdown and end slide do not auto-advance.
       return;
     }
 
@@ -169,7 +169,7 @@ export function useTTS({ slide, totalSlides }: UseTTSProps) {
   }, [slide, isPlaying, playSlideAudio, stopAllPlayback]);
 
   useEffect(() => {
-    if (!slide || slide.type === 'link_cards' || slide.type === 'section_hero') {
+    if (!slide || slide.type === 'link_cards' || slide.type === 'section_hero' || slide.type === 'end') {
       return;
     }
 
