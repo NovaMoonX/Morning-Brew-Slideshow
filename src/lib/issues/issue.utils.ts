@@ -94,6 +94,9 @@ function asSlides(value: unknown): Slide[] {
       links: asLinks(item.links),
       audio_url: asNullableText(item.audio_url),
       order: asNumber(item.order, index),
+      answer_body: asNullableText(item.answer_body),
+      answer_body_html: asNullableText(item.answer_body_html),
+      answer_links: item.answer_links ? asLinks(item.answer_links) : undefined,
     };
 
     return normalized;

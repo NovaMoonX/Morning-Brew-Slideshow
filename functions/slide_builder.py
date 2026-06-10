@@ -192,15 +192,35 @@ class SlideBuilder:
                 sections.append(section)
 
         result: dict = {}
+        answer_section = self._find_answer_section(issue)
         for section in sections:
             category = section.category.upper()
             if category == 'ANSWER':
                 continue
             extra_key = category.lower()
-            built = self._build_extra_section_slides(section, extra_key)
+            answer_for_play = answer_section if extra_key == 'play' else None
+            built = self._build_extra_section_slides(
+                section,
+                extra_key,
+                answer_section=answer_for_play,
+            )
             if built:
                 result[extra_key] = built
         return result
+
+    @staticmethod
+    def _find_answer_section(issue: BrewIssue) -> Optional[ContentSection]:
+        for section in issue.extra_sections or []:
+            if section.category.upper() == 'ANSWER':
+                return section
+        return None
+
+    @staticmethod
+    def _answer_blocks_excluding_wotd(section: ContentSection) -> List[ContentBlock]:
+        return [
+            block for block in section.content_blocks
+            if 'word of the day' not in block.text.lower()
+        ]
 
     @staticmethod
     def _is_sponsor_footnote(block: ContentBlock) -> bool:
@@ -214,6 +234,7 @@ class SlideBuilder:
         self,
         section: ContentSection,
         extra_key: str,
+        answer_section: Optional[ContentSection] = None,
     ) -> List[Slide]:
         blocks = [
             block for block in section.content_blocks
@@ -225,22 +246,15 @@ class SlideBuilder:
 
         sec_id = f'extra_{extra_key}'
         title = section.category.upper()
+        groups = [blocks]
 
-        if extra_key == 'play':
-            split_at = next(
-                (index for index, block in enumerate(blocks) if block.type == 'subheading'),
-                None,
-            )
-            if split_at is not None and split_at > 0:
-                groups = [blocks[:split_at], blocks[split_at:]]
-            else:
-                groups = [blocks]
-        else:
-            groups = [blocks]
+        answer_blocks: List[ContentBlock] = []
+        if extra_key == 'play' and answer_section:
+            answer_blocks = self._answer_blocks_excluding_wotd(answer_section)
 
         slides: List[Slide] = []
         for group_index, group in enumerate(groups):
-            slides.append(Slide(
+            slide = Slide(
                 id=f"{sec_id}_{group_index:02d}",
                 type='extra_content',
                 section_id=sec_id,
@@ -253,7 +267,12 @@ class SlideBuilder:
                 image_url=section.image_url if group_index == 0 else None,
                 links=self._collect_block_links(section, group),
                 order=group_index,
-            ))
+            )
+            if answer_blocks:
+                slide.answer_body = self._blocks_to_plain_text(answer_blocks)
+                slide.answer_body_html = self._blocks_to_html(answer_blocks)
+                slide.answer_links = self._collect_block_links(answer_section, answer_blocks)
+            slides.append(slide)
         return slides
 
     def build_section_slides(self, section: ContentSection, start_order: int) -> tuple[List[Slide], int]:

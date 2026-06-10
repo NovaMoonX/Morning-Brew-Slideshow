@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import type { Slide } from '@lib/models';
 import { SlideBody } from '@components/SlideBody';
 
@@ -10,6 +10,17 @@ interface ExtraSectionViewerProps {
   onPrev: () => void;
 }
 
+function normalizeInlineHtml(html: string): string {
+  return html
+    .replace(/(<\/(?:a|strong|b|em|i|span)>)(?=\w)/g, '$1 ')
+    .replace(/(\w)(<(?:a|strong|b|em|i|span)\b)/g, '$1 $2')
+    .replace(/(<\/(?:a|strong|b|em|i|span)>)(<span>)([A-Za-z])/g, '$1$2 $3')
+    .replace(/(<\/span><span>)([A-Za-z])/g, '$1 $2')
+    .replace(/(<\/strong>)([A-Za-z])/g, '$1 $2')
+    .replace(/(<\/a>)([A-Za-z])/g, '$1 $2')
+    .replace(/:(?=[A-Za-z])/g, ': ');
+}
+
 export function ExtraSectionViewer({
   slides,
   currentIndex,
@@ -19,6 +30,12 @@ export function ExtraSectionViewer({
 }: ExtraSectionViewerProps) {
   const slide = slides[currentIndex];
   const total = slides.length;
+  const hasHiddenAnswer = Boolean(slide?.answer_body_html || slide?.answer_body);
+  const [answerRevealed, setAnswerRevealed] = useState(false);
+
+  useEffect(() => {
+    setAnswerRevealed(false);
+  }, [slide?.id, currentIndex]);
 
   const handleTap = useCallback(
     (event: React.MouseEvent<HTMLDivElement>) => {
@@ -79,7 +96,43 @@ export function ExtraSectionViewer({
           )}
           <div className="mt-3 min-h-0 flex-1 overflow-y-auto overscroll-contain">
             <SlideBody slide={slide} className="text-sm leading-snug md:text-[0.9375rem]" />
+
+            {hasHiddenAnswer && answerRevealed && (
+              <div className="mt-6 rounded-xl border border-sky-300 bg-sky-50 px-4 py-4 dark:border-sky-800 dark:bg-sky-950/30">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-sky-600 dark:text-sky-400">
+                  Answer
+                </p>
+                {slide.answer_body_html ? (
+                  <div
+                    className="slide-body-html mt-2 text-sm leading-relaxed text-foreground [&_a]:border-b-2 [&_a]:border-sky-400 [&_a]:text-inherit [&_a]:no-underline"
+                    dangerouslySetInnerHTML={{
+                      __html: normalizeInlineHtml(slide.answer_body_html),
+                    }}
+                    onClick={(event) => {
+                      if ((event.target as HTMLElement).closest('a')) {
+                        event.stopPropagation();
+                      }
+                    }}
+                  />
+                ) : (
+                  <p className="mt-2 text-sm leading-relaxed text-foreground">{slide.answer_body}</p>
+                )}
+              </div>
+            )}
           </div>
+
+          {hasHiddenAnswer && !answerRevealed && (
+            <button
+              type="button"
+              onClick={(event) => {
+                event.stopPropagation();
+                setAnswerRevealed(true);
+              }}
+              className="pointer-events-auto mt-4 w-full shrink-0 rounded-full border border-sky-400 bg-surface px-6 py-3 text-sm font-semibold text-sky-600 transition hover:bg-sky-50 dark:text-sky-400 dark:hover:bg-sky-950/40"
+            >
+              Reveal answer
+            </button>
+          )}
         </div>
       </div>
 

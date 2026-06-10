@@ -41,6 +41,9 @@ export interface Slide {
   links: LinkRef[];
   audio_url: string | null;
   order: number;
+  answer_body?: string | null;
+  answer_body_html?: string | null;
+  answer_links?: LinkRef[];
 }
 
 export interface MarketTicker {

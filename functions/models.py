@@ -30,14 +30,21 @@ class Slide:
     links: List[LinkRef] = None
     audio_url: Optional[str] = None
     order: int = 0
+    answer_body: Optional[str] = None
+    answer_body_html: Optional[str] = None
+    answer_links: List[LinkRef] = None
 
     def __post_init__(self):
         if self.links is None:
             self.links = []
+        if self.answer_links is None:
+            self.answer_links = []
 
     def to_dict(self):
         result = asdict(self)
         result['links'] = [l.to_dict() for l in self.links]
+        if self.answer_links:
+            result['answer_links'] = [l.to_dict() for l in self.answer_links]
         return result
 
 @dataclass

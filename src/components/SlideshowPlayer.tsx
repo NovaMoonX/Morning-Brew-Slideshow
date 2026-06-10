@@ -269,7 +269,6 @@ export function SlideshowPlayer({
     usesBriefCardsLayout ||
     (slide.type === 'link_cards' && isBlankLinkTail);
   const showSkipButton = slide.type === 'link_cards' && visibleLinkCount > 0 && !isBlankLinkTail;
-  const showBriefCardsContinue = slide.type === 'brief_cards';
   const [linkCardsPaused, setLinkCardsPaused] = useState(false);
   const pausedForTocRef = useRef(false);
 
@@ -369,7 +368,7 @@ export function SlideshowPlayer({
       {usesMarketsLayout && <SplitMarketsLayout slide={slide} />}
 
       {usesBriefCardsLayout && (
-        <div className="absolute inset-0 flex flex-col overflow-hidden bg-background px-4 pb-36 pt-20 md:px-8 md:pb-40 md:pt-[4.5rem]">
+        <div className="absolute inset-0 flex flex-col overflow-hidden bg-background px-4 pb-28 pt-20 md:px-8 md:pb-32 md:pt-[4.5rem]">
           <div className="mx-auto flex min-h-0 w-full max-w-xl flex-1 flex-col">
             <span className="shrink-0 text-xs font-bold uppercase tracking-wider text-sky-500">
               {sectionLabel}
@@ -379,6 +378,22 @@ export function SlideshowPlayer({
             </h2>
             <div className="mt-4 min-h-0 flex-1 overflow-y-auto overscroll-contain">
               <BriefCardsList links={slide.links} />
+            </div>
+            <div className="pointer-events-auto shrink-0 space-y-2 pt-4">
+              <p className="text-center text-xs font-semibold tracking-wider text-muted-soft">
+                SLIDE {currentIndex + 1} OF {totalSlides}
+              </p>
+              <button
+                type="button"
+                onClick={(event) => {
+                  event.stopPropagation();
+                  dispatch(nextSlide({ totalSlides, mainLastIndex }));
+                }}
+                className="inline-flex w-full items-center justify-center gap-2 rounded-full bg-sky-600 px-8 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-lg transition hover:bg-sky-500"
+              >
+                Next step
+                <span aria-hidden>→</span>
+              </button>
             </div>
           </div>
         </div>
@@ -548,9 +563,11 @@ export function SlideshowPlayer({
       )}
 
       <div className="pointer-events-none absolute bottom-[4.75rem] left-0 right-0 z-20 flex flex-col items-center gap-2">
-        <div className="text-xs font-semibold tracking-wider text-muted-soft">
-          SLIDE {currentIndex + 1} OF {totalSlides}
-        </div>
+        {slide.type !== 'brief_cards' && (
+          <div className="text-xs font-semibold tracking-wider text-muted-soft">
+            SLIDE {currentIndex + 1} OF {totalSlides}
+          </div>
+        )}
         {showSkipButton && (
           <div className="pointer-events-auto flex items-center gap-2">
             {onOpenTableOfContents && (
@@ -565,19 +582,6 @@ export function SlideshowPlayer({
               paused={linkCardsPaused}
             />
           </div>
-        )}
-        {showBriefCardsContinue && (
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              dispatch(nextSlide({ totalSlides, mainLastIndex }));
-            }}
-            className="pointer-events-auto inline-flex items-center gap-2 rounded-full bg-sky-600 px-8 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-lg transition hover:bg-sky-500"
-          >
-            Next step
-            <span aria-hidden>→</span>
-          </button>
         )}
       </div>
     </div>
