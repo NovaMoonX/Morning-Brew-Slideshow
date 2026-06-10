@@ -13,6 +13,7 @@
   --color-surface: #ffffff;
   --color-surface-elevated: var(--color-slate-100);
   --color-surface-glass: rgb(255 255 255 / 0.92);
+  --color-surface-overlay: rgb(255 255 255 / 0.58);
   --color-surface-muted: var(--color-slate-100);
   --color-border: var(--color-slate-200);
   --color-border-strong: var(--color-slate-300);
@@ -27,6 +28,7 @@
   --color-surface: var(--color-slate-900);
   --color-surface-elevated: var(--color-slate-900);
   --color-surface-glass: rgb(2 6 23 / 0.78);
+  --color-surface-overlay: rgb(2 6 23 / 0.62);
   --color-surface-muted: var(--color-slate-900);
   --color-border: var(--color-slate-800);
   --color-border-strong: var(--color-slate-700);

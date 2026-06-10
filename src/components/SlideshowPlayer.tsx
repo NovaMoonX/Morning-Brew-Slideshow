@@ -8,6 +8,7 @@ import { LinkExplorer } from '@components/LinkExplorer';
 import { LinkCardsSkipButton } from '@components/LinkCardsSkipButton';
 import { MarketsTable, parseMarketsSlide } from '@components/MarketsTable';
 import { SectionHeroCountdown } from '@components/SectionHeroCountdown';
+import { IssueEndSlide } from '@components/IssueEndSlide';
 import {
   getSectionContext,
   resolveSlideImage,
@@ -63,7 +64,7 @@ function SectionHeader({
 }) {
   const boxClass = inline
     ? 'rounded-xl border border-border bg-surface px-4 py-3 shadow-lg'
-    : 'rounded-xl border border-border bg-surface px-4 py-3 shadow-lg';
+    : 'rounded-xl border border-border/60 bg-surface-overlay px-4 py-3 shadow-lg backdrop-blur-md';
 
   const box = (
     <div className={boxClass}>
@@ -218,16 +219,33 @@ export function SlideshowPlayer({
       (sectionTitle?.toLowerCase().includes('tour de headlines') ?? false),
     [slide.title, slide.id, sectionTitle],
   );
+  const isBlankLinkTail = useMemo(() => {
+    if (slide.type !== 'link_cards' || visibleLinkCount > 0) {
+      return false;
+    }
+    return slides.slice(currentIndex).every((s) => {
+      if (s.type === 'end') {
+        return true;
+      }
+      if (s.type !== 'link_cards') {
+        return false;
+      }
+      const ctx = getSectionContext(slides, s.section_id);
+      return filterSectionBodyLinks(s.links, ctx.title).length === 0;
+    });
+  }, [slide.type, visibleLinkCount, slides, currentIndex]);
+  const usesEndLayout = slide.type === 'end';
   const usesSectionLayout =
     Boolean(sectionImageUrl) &&
     (slide.type === 'section_hero' ||
       slide.type === 'body' ||
       slide.type === 'bullet' ||
-      slide.type === 'link_cards');
+      (slide.type === 'link_cards' && !isBlankLinkTail));
   const usesIntroSplitLayout = slide.type === 'intro' && Boolean(slide.image_url);
   const usesMarketsLayout = slide.type === 'markets';
-  const usesSplitLayout = usesSectionLayout || usesIntroSplitLayout || usesMarketsLayout;
-  const showSkipButton = slide.type === 'link_cards';
+  const usesSplitLayout =
+    usesSectionLayout || usesIntroSplitLayout || usesMarketsLayout || (slide.type === 'link_cards' && isBlankLinkTail);
+  const showSkipButton = slide.type === 'link_cards' && visibleLinkCount > 0 && !isBlankLinkTail;
   const [linkCardsPaused, setLinkCardsPaused] = useState(false);
   const pausedForTocRef = useRef(false);
 
@@ -376,7 +394,7 @@ export function SlideshowPlayer({
             </>
           )}
 
-          {slide.type === 'link_cards' && (
+          {slide.type === 'link_cards' && !isBlankLinkTail && (
             <LinkExplorer
               links={slide.links}
               embedded
@@ -386,10 +404,38 @@ export function SlideshowPlayer({
               onReadClick={handleLinkRead}
             />
           )}
+
+          {slide.type === 'link_cards' && isBlankLinkTail && (
+            <IssueEndSlide
+              compact
+              title={currentIndex === totalSlides - 1 ? "That's a wrap" : 'End of the issue'}
+              body={
+                currentIndex === totalSlides - 1
+                  ? "You've finished today's Morning Brew. See you tomorrow."
+                  : "You've reached the end of today's stories. Tap right to continue."
+              }
+            />
+          )}
         </SplitImageLayout>
       )}
 
-      {!usesSplitLayout && (
+      {usesEndLayout && (
+        <div className="absolute inset-0 z-10 flex flex-col bg-background">
+          <div className="relative h-1/3 w-full shrink-0">
+            <img
+              src={backgroundImage}
+              alt=""
+              className="block h-full w-full object-cover object-center"
+            />
+            <div className="pointer-events-none absolute inset-x-0 bottom-0 h-16 bg-gradient-to-t from-background to-transparent" />
+          </div>
+          <div className="flex min-h-0 flex-1 flex-col justify-center">
+            <IssueEndSlide title={slide.title} body={slide.body} />
+          </div>
+        </div>
+      )}
+
+      {!usesSplitLayout && !usesEndLayout && (
         <div className="relative z-10 flex h-full w-full flex-col px-6 pt-16 pb-28 md:px-8">
           <div className="flex min-h-0 flex-1 flex-col justify-center overflow-y-auto">
             {slide.type === 'cover' && (
