@@ -127,24 +127,133 @@ class SlideBuilder:
             ))
             order += 1
 
-        for section in issue.sections:
+        for section in self._main_sections(issue):
             sec_slides, next_order = self.build_section_slides(section, order)
             slides.extend(sec_slides)
             order = next_order
 
+        hub_body = issue.word_of_day_html or (
+            f"Today's Word of the Day: {issue.word_of_day}."
+            if issue.word_of_day
+            else "You've finished today's news."
+        )
         slides.append(Slide(
-            id=f"end_{order:03d}",
-            type="end",
-            section_id="end",
+            id=f"extras_hub_{order:03d}",
+            type="extras_hub",
+            section_id="extras",
             section_label="FIN",
-            title="That's a wrap",
-            body="You've finished today's Morning Brew. See you tomorrow.",
+            title="You're all caught up",
+            body=hub_body if not issue.word_of_day_html else issue.word_of_day or '',
+            body_html=issue.word_of_day_html,
             image_url=issue.primary_image_url,
             image_caption=issue.date,
             links=[],
             order=order,
         ))
 
+        return slides
+
+    def _main_sections(self, issue: BrewIssue) -> List[ContentSection]:
+        """News deck sections only — stops after What else is brewing."""
+        main: List[ContentSection] = []
+        for section in issue.sections:
+            if section.category.upper() in {'RECS', 'PLAY', 'ANSWER'}:
+                continue
+            if (
+                section.title.strip().lower() == 'story highlight'
+                and not section.is_what_else_is_brewing
+            ):
+                continue
+            main.append(section)
+            if section.is_what_else_is_brewing:
+                break
+        return main
+
+    def build_extra_slides(self, issue: BrewIssue) -> dict:
+        sections = list(issue.extra_sections or [])
+        seen_keys = {
+            (section.category.upper(), section.title.strip().lower())
+            for section in sections
+        }
+
+        brewing_idx = next(
+            (index for index, section in enumerate(issue.sections) if section.is_what_else_is_brewing),
+            None,
+        )
+        if brewing_idx is not None:
+            for section in issue.sections[brewing_idx + 1:]:
+                cat = section.category.upper()
+                if cat not in ('RECS', 'PLAY'):
+                    continue
+                key = (cat, section.title.strip().lower())
+                if key in seen_keys:
+                    continue
+                seen_keys.add(key)
+                sections.append(section)
+
+        result: dict = {}
+        for section in sections:
+            category = section.category.upper()
+            if category == 'ANSWER':
+                continue
+            extra_key = category.lower()
+            built = self._build_extra_section_slides(section, extra_key)
+            if built:
+                result[extra_key] = built
+        return result
+
+    @staticmethod
+    def _is_sponsor_footnote(block: ContentBlock) -> bool:
+        text = block.text.lower()
+        return (
+            'message from our sponsor' in text
+            or 'product recommendation from our writers' in text
+        )
+
+    def _build_extra_section_slides(
+        self,
+        section: ContentSection,
+        extra_key: str,
+    ) -> List[Slide]:
+        blocks = [
+            block for block in section.content_blocks
+            if not self._is_sponsor_footnote(block)
+            and block.text.strip().lower() != section.title.strip().lower()
+        ]
+        if not blocks:
+            return []
+
+        sec_id = f'extra_{extra_key}'
+        title = section.category.upper()
+
+        if extra_key == 'play':
+            split_at = next(
+                (index for index, block in enumerate(blocks) if block.type == 'subheading'),
+                None,
+            )
+            if split_at is not None and split_at > 0:
+                groups = [blocks[:split_at], blocks[split_at:]]
+            else:
+                groups = [blocks]
+        else:
+            groups = [blocks]
+
+        slides: List[Slide] = []
+        for group_index, group in enumerate(groups):
+            slides.append(Slide(
+                id=f"{sec_id}_{group_index:02d}",
+                type='extra_content',
+                section_id=sec_id,
+                section_label=title,
+                title=title if group_index == 0 else (
+                    group[0].text if group and group[0].type == 'subheading' else title
+                ),
+                body=self._blocks_to_plain_text(group),
+                body_html=self._blocks_to_html(group),
+                image_url=section.image_url if group_index == 0 else None,
+                links=self._collect_block_links(section, group),
+                order=group_index,
+            ))
         return slides
 
     def build_section_slides(self, section: ContentSection, start_order: int) -> tuple[List[Slide], int]:
@@ -264,17 +373,33 @@ class SlideBuilder:
             items.append(f'<li>{inner}</li>')
         return f'<ul class="slide-bullets">{"".join(items)}</ul>'
 
+    def _ordered_list_html(self, bullet_blocks: List[ContentBlock]) -> str:
+        items = []
+        for block in bullet_blocks:
+            inner = block.body_html or block.text
+            items.append(f'<li>{inner}</li>')
+        return f'<ol class="slide-ordered-list">{"".join(items)}</ol>'
+
     def _blocks_to_html(self, blocks: List[ContentBlock]) -> str:
         parts: List[str] = []
         i = 0
         while i < len(blocks):
             block = blocks[i]
-            if block.type == 'bullet':
+            if block.type in ('bullet', 'ordered_bullet'):
                 j = i
-                while j < len(blocks) and blocks[j].type == 'bullet':
+                list_type = block.type
+                while j < len(blocks) and blocks[j].type == list_type:
                     j += 1
-                parts.append(self._bullet_list_html(blocks[i:j]))
+                if list_type == 'ordered_bullet':
+                    parts.append(self._ordered_list_html(blocks[i:j]))
+                else:
+                    parts.append(self._bullet_list_html(blocks[i:j]))
                 i = j
+                continue
+
+            if block.type == 'subheading':
+                parts.append(f'<h3>{block.body_html or block.text}</h3>')
+                i += 1
                 continue
 
             if block.body_html:
@@ -287,8 +412,9 @@ class SlideBuilder:
     def _blocks_to_plain_text(self, blocks: List[ContentBlock]) -> str:
         lines: List[str] = []
         for block in blocks:
-            if block.type == 'bullet':
-                lines.append(f'• {block.text}')
+            if block.type in ('bullet', 'ordered_bullet'):
+                prefix = '•' if block.type == 'bullet' else '1.'
+                lines.append(f'{prefix} {block.text}')
             else:
                 lines.append(block.text)
         return '\n'.join(lines)

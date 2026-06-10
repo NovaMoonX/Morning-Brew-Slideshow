@@ -8,6 +8,7 @@ interface SectionHeroCountdownProps {
   sectionLabel: string;
   sectionTitle?: string | null;
   totalSlides: number;
+  mainLastIndex: number;
   durationMs?: number;
 }
 
@@ -16,6 +17,7 @@ export function SectionHeroCountdown({
   sectionLabel,
   sectionTitle,
   totalSlides,
+  mainLastIndex,
   durationMs = SECTION_HERO_DURATION_MS,
 }: SectionHeroCountdownProps) {
   const dispatch = useAppDispatch();
@@ -41,7 +43,7 @@ export function SectionHeroCountdown({
       }
       advancedRef.current = true;
       setSecondsLeft(0);
-      dispatch(nextSlide(totalSlides));
+      dispatch(nextSlide({ totalSlides, mainLastIndex }));
     }, durationMs);
 
     return () => {

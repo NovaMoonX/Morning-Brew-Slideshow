@@ -1,18 +1,25 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '@store/index';
 import { useIssue } from '@hooks/useIssue';
-import { resetPlayer } from '@store/slideshowSlice';
+import {
+  resetPlayer,
+  openExtraSection,
+  closeExtraSection,
+  nextExtraSlide,
+  prevExtraSlide,
+} from '@store/slideshowSlice';
 import { SlideshowPlayer } from '@components/SlideshowPlayer';
 import { IssueTableOfContents } from '@components/IssueTableOfContents';
 import { TTSEngine } from '@components/TTSEngine';
+import { ExtraSectionViewer } from '@components/ExtraSectionViewer';
+import { getMainDeckLastIndex } from '@lib/slideshow/deckBounds';
 
 export function SlideshowPage() {
   const { date } = useParams<{ date: string }>();
   const navigate = useNavigate();
   const dispatch = useAppDispatch();
 
-  // Reset slide index when opening a new issue
   useEffect(() => {
     dispatch(resetPlayer());
     setTocOpen(false);
@@ -20,18 +27,23 @@ export function SlideshowPage() {
 
   const issueId = date || '';
   const [tocOpen, setTocOpen] = useState(false);
-  
-  // Custom hook manages real-time snapshot subscription and dispatches updates to Redux
+
   const { issue, loading, error } = useIssue(issueId);
   const currentSlideIndex = useAppSelector((state) => state.slideshow.currentSlideIndex);
+  const activeExtra = useAppSelector((state) => state.slideshow.activeExtra);
+  const extraSlideIndex = useAppSelector((state) => state.slideshow.extraSlideIndex);
 
   const slides = issue?.slides ?? [];
   const totalSlides = slides.length;
-  
-  // Safe bounded slide reference
-  const activeIndex = Math.max(0, Math.min(currentSlideIndex, totalSlides - 1));
+  const extraSlides = issue?.extra_slides ?? {};
+  const mainLastIndex = useMemo(() => getMainDeckLastIndex(slides), [slides]);
+
+  const activeIndex = Math.max(0, Math.min(currentSlideIndex, mainLastIndex));
   const activeSlide = slides[activeIndex] ?? null;
   const isAudioReady = issue?.status === 'audio_ready';
+
+  const activeExtraSlides = activeExtra ? extraSlides[activeExtra] ?? [] : [];
+  const showExitButton = !activeExtra;
 
   if (loading && !issue) {
     return (
@@ -79,48 +91,67 @@ export function SlideshowPage() {
   return (
     <div className="min-h-dvh w-full bg-background">
       <div className="relative mx-auto h-dvh w-full max-w-lg overflow-hidden text-foreground select-none">
-      {/* Floating Exit Button */}
-      <button
-        onClick={() => navigate('/')}
-        className="absolute top-4 right-4 z-40 flex items-center justify-center rounded-full border border-border bg-surface-glass p-3 text-muted shadow-md backdrop-blur-md transition hover:bg-surface-elevated hover:text-foreground focus:outline-none focus:ring-2 focus:ring-sky-500"
-        aria-label="Exit Slideshow"
-      >
-        <svg
-          xmlns="http://www.w3.org/2000/svg"
-          fill="none"
-          viewBox="0 0 24 24"
-          strokeWidth={2.5}
-          stroke="currentColor"
-          className="size-5"
-        >
-          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-        </svg>
-      </button>
+        {showExitButton && (
+          <button
+            onClick={() => navigate('/')}
+            className="absolute top-4 right-4 z-40 flex items-center justify-center rounded-full border border-border bg-surface-glass p-3 text-muted shadow-md backdrop-blur-md transition hover:bg-surface-elevated hover:text-foreground focus:outline-none focus:ring-2 focus:ring-sky-500"
+            aria-label="Exit Slideshow"
+          >
+            <svg
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              strokeWidth={2.5}
+              stroke="currentColor"
+              className="size-5"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        )}
 
-      {/* Main Full-Bleed slide renderer */}
-      <SlideshowPlayer
-        slide={activeSlide}
-        slides={slides}
-        currentIndex={activeIndex}
-        totalSlides={totalSlides}
-        tocOpen={tocOpen}
-        onOpenTableOfContents={() => setTocOpen(true)}
-      />
+        <SlideshowPlayer
+          slide={activeSlide}
+          slides={slides}
+          currentIndex={activeIndex}
+          totalSlides={totalSlides}
+          tocOpen={tocOpen}
+          onOpenTableOfContents={() => setTocOpen(true)}
+          extraSlides={extraSlides}
+          wordOfDayHtml={issue.word_of_day_html ?? null}
+          wordOfDay={issue.word_of_day}
+          onOpenExtra={(section) => dispatch(openExtraSection(section))}
+          onExit={() => navigate('/')}
+        />
 
-      <IssueTableOfContents
-        slides={slides}
-        currentIndex={activeIndex}
-        isOpen={tocOpen}
-        onClose={() => setTocOpen(false)}
-      />
+        {!activeExtra && (
+          <IssueTableOfContents
+            slides={slides}
+            currentIndex={activeIndex}
+            isOpen={tocOpen}
+            onClose={() => setTocOpen(false)}
+          />
+        )}
 
-      {/* Discreet bottom status EQ & Controls */}
-      <TTSEngine
-        slide={activeSlide}
-        totalSlides={totalSlides}
-        isAudioReady={isAudioReady}
-        onOpenTableOfContents={() => setTocOpen(true)}
-      />
+        {!activeExtra && (
+          <TTSEngine
+            slide={activeSlide}
+            totalSlides={totalSlides}
+            mainLastIndex={mainLastIndex}
+            isAudioReady={isAudioReady}
+            onOpenTableOfContents={() => setTocOpen(true)}
+          />
+        )}
+
+        {activeExtra && activeExtraSlides.length > 0 && (
+          <ExtraSectionViewer
+            slides={activeExtraSlides}
+            currentIndex={Math.min(extraSlideIndex, activeExtraSlides.length - 1)}
+            onBack={() => dispatch(closeExtraSection())}
+            onNext={() => dispatch(nextExtraSlide(activeExtraSlides.length))}
+            onPrev={() => dispatch(prevExtraSlide())}
+          />
+        )}
       </div>
     </div>
   );

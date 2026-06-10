@@ -10,11 +10,14 @@ import { MarketsTable, parseMarketsSlide } from '@components/MarketsTable';
 import { SectionHeroCountdown } from '@components/SectionHeroCountdown';
 import { IssueEndSlide } from '@components/IssueEndSlide';
 import { BriefCardsList } from '@components/BriefCardsList';
+import { ExtrasHubSlide } from '@components/ExtrasHubSlide';
 import {
   getSectionContext,
   resolveSlideImage,
 } from '@lib/slideshow/sectionContext';
+import { getMainDeckLastIndex } from '@lib/slideshow/deckBounds';
 import { linkCardDurationMs } from '@lib/slideshow/timing';
+import type { ExtraSectionKey, ExtraSlidesMap } from '@lib/models';
 
 const FALLBACK_IMAGE =
   'https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=1200&auto=format&fit=crop&q=80';
@@ -26,6 +29,11 @@ interface SlideshowPlayerProps {
   totalSlides: number;
   tocOpen?: boolean;
   onOpenTableOfContents?: () => void;
+  extraSlides?: ExtraSlidesMap;
+  wordOfDayHtml?: string | null;
+  wordOfDay?: string | null;
+  onOpenExtra?: (section: ExtraSectionKey) => void;
+  onExit?: () => void;
 }
 
 function TableOfContentsIconButton({ onClick }: { onClick: (event: React.MouseEvent) => void }) {
@@ -175,9 +183,15 @@ export function SlideshowPlayer({
   totalSlides,
   tocOpen = false,
   onOpenTableOfContents,
+  extraSlides = {},
+  wordOfDayHtml = null,
+  wordOfDay = null,
+  onOpenExtra,
+  onExit,
 }: SlideshowPlayerProps) {
   const dispatch = useAppDispatch();
   const percentage = totalSlides > 0 ? ((currentIndex + 1) / totalSlides) * 100 : 0;
+  const mainLastIndex = useMemo(() => getMainDeckLastIndex(slides), [slides]);
 
   const sectionContext = useMemo(
     () => getSectionContext(slides, slide.section_id),
@@ -200,7 +214,9 @@ export function SlideshowPlayer({
       if (slide.type === 'cover') {
         dispatch(togglePlay(true));
       }
-      dispatch(nextSlide(totalSlides));
+      if (slide.type !== 'extras_hub' && slide.type !== 'end') {
+        dispatch(nextSlide({ totalSlides, mainLastIndex }));
+      }
     } else {
       dispatch(togglePlay());
     }
@@ -236,6 +252,7 @@ export function SlideshowPlayer({
     });
   }, [slide.type, visibleLinkCount, slides, currentIndex]);
   const usesEndLayout = slide.type === 'end';
+  const usesExtrasHubLayout = slide.type === 'extras_hub';
   const usesBriefCardsLayout = slide.type === 'brief_cards';
   const usesSectionLayout =
     Boolean(sectionImageUrl) &&
@@ -252,6 +269,7 @@ export function SlideshowPlayer({
     usesBriefCardsLayout ||
     (slide.type === 'link_cards' && isBlankLinkTail);
   const showSkipButton = slide.type === 'link_cards' && visibleLinkCount > 0 && !isBlankLinkTail;
+  const showBriefCardsContinue = slide.type === 'brief_cards';
   const [linkCardsPaused, setLinkCardsPaused] = useState(false);
   const pausedForTocRef = useRef(false);
 
@@ -319,7 +337,7 @@ export function SlideshowPlayer({
       onClick={handleTap}
       className="relative flex h-full w-full cursor-pointer flex-col bg-background text-foreground select-none"
     >
-      {!usesSplitLayout && !usesEndLayout && (
+      {!usesSplitLayout && !usesEndLayout && !usesExtrasHubLayout && (
         <div className="absolute inset-0 z-0">
           <img
             src={backgroundImage}
@@ -383,6 +401,7 @@ export function SlideshowPlayer({
               sectionLabel={sectionLabel}
               sectionTitle={sectionTitle}
               totalSlides={totalSlides}
+              mainLastIndex={mainLastIndex}
             />
           )}
 
@@ -441,6 +460,21 @@ export function SlideshowPlayer({
         </SplitImageLayout>
       )}
 
+      {usesExtrasHubLayout && (
+        <ExtrasHubSlide
+          wordHtml={wordOfDayHtml ?? slide.body_html ?? null}
+          wordText={
+            !wordOfDayHtml && !slide.body_html
+              ? (wordOfDay ?? slide.body ?? null)
+              : null
+          }
+          wordLabel={wordOfDay}
+          extraSlides={extraSlides}
+          onOpenExtra={(section) => onOpenExtra?.(section)}
+          onExit={() => onExit?.()}
+        />
+      )}
+
       {usesEndLayout && (
         <div className="absolute inset-0 z-10 flex flex-col bg-background">
           <div className="relative h-1/3 w-full shrink-0">
@@ -457,7 +491,7 @@ export function SlideshowPlayer({
         </div>
       )}
 
-      {!usesSplitLayout && !usesEndLayout && (
+      {!usesSplitLayout && !usesEndLayout && !usesExtrasHubLayout && (
         <div className="relative z-10 flex h-full w-full flex-col px-6 pt-16 pb-28 md:px-8">
           <div className="flex min-h-0 flex-1 flex-col justify-center overflow-y-auto">
             {slide.type === 'cover' && (
@@ -525,11 +559,25 @@ export function SlideshowPlayer({
             <LinkCardsSkipButton
               slideId={slide.id}
               totalSlides={totalSlides}
+              mainLastIndex={mainLastIndex}
               linkCount={visibleLinkCount}
               durationMs={linkCardDurationMs(visibleLinkCount)}
               paused={linkCardsPaused}
             />
           </div>
+        )}
+        {showBriefCardsContinue && (
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              dispatch(nextSlide({ totalSlides, mainLastIndex }));
+            }}
+            className="pointer-events-auto inline-flex items-center gap-2 rounded-full bg-sky-600 px-8 py-2.5 text-xs font-bold uppercase tracking-wider text-white shadow-lg transition hover:bg-sky-500"
+          >
+            Next step
+            <span aria-hidden>→</span>
+          </button>
         )}
       </div>
     </div>

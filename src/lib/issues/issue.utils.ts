@@ -21,6 +21,8 @@ const ALLOWED_SLIDE_TYPES: SlideType[] = [
   'bullet',
   'link_cards',
   'brief_cards',
+  'extras_hub',
+  'extra_content',
   'end',
 ];
 
@@ -114,6 +116,12 @@ export function normalizeIssue(raw: unknown, fallbackId: string): BrewIssue {
     ? (statusCandidate as IssueStatus)
     : 'ready';
 
+  const extraRaw = (item.extra_slides ?? {}) as Record<string, unknown>;
+  const extra_slides = {
+    recs: extraRaw.recs ? asSlides(extraRaw.recs) : undefined,
+    play: extraRaw.play ? asSlides(extraRaw.play) : undefined,
+  };
+
   const normalized: BrewIssue = {
     id: asText(item.id, fallbackId),
     date: asText(item.date, fallbackId),
@@ -123,6 +131,8 @@ export function normalizeIssue(raw: unknown, fallbackId: string): BrewIssue {
     intro: asText(item.intro),
     tickers: [],
     word_of_day: asNullableText(item.word_of_day),
+    word_of_day_html: asNullableText(item.word_of_day_html),
+    extra_slides,
     status,
     slides: asSlides(item.slides),
     fetched_at: asText(item.fetched_at, new Date().toISOString()),

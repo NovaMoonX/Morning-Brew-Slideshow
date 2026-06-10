@@ -63,6 +63,16 @@ export function buildTableOfContents(slides: Slide[]): TocEntry[] {
       continue;
     }
 
+    if (slide.type === 'extras_hub') {
+      entries.push({
+        slideIndex: index,
+        label: 'Fin',
+        title: slide.title || "You're all caught up",
+        indent: 0,
+      });
+      continue;
+    }
+
     if (slide.type === 'brief_cards') {
       entries.push({
         slideIndex: index,

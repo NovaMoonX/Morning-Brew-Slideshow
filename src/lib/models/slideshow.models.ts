@@ -20,7 +20,13 @@ export type SlideType =
   | 'bullet'
   | 'link_cards'
   | 'brief_cards'
+  | 'extras_hub'
+  | 'extra_content'
   | 'end';
+
+export type ExtraSectionKey = 'recs' | 'play';
+
+export type ExtraSlidesMap = Partial<Record<ExtraSectionKey, Slide[]>>;
 
 export interface Slide {
   id: string;
@@ -53,6 +59,8 @@ export interface BrewIssue {
   intro: string;
   tickers: MarketTicker[];
   word_of_day: string | null;
+  word_of_day_html?: string | null;
+  extra_slides?: ExtraSlidesMap;
   status: IssueStatus;
   slides: Slide[];
   fetched_at: string;

@@ -58,6 +58,7 @@ def handle_ingest_issue(req) -> tuple[str, int]:
         _log("Building slides")
         builder = SlideBuilder()
         issue.slides = builder.build_slides(issue)
+        extra_slides = builder.build_extra_slides(issue)
 
         slides_list = [s.to_dict() for s in issue.slides]
         section_images = {
@@ -80,6 +81,10 @@ def handle_ingest_issue(req) -> tuple[str, int]:
         try:
             issue_dict = issue.to_dict()
             issue_dict['slides'] = slides_list
+            issue_dict['extra_slides'] = {
+                key: [slide.to_dict() for slide in slide_list]
+                for key, slide_list in extra_slides.items()
+            }
             issue_dict['status'] = 'enriched'
             get_db().collection('issues').document(actual_date).set(
                 issue_dict, timeout=FIRESTORE_TIMEOUT_SEC

@@ -95,8 +95,10 @@ class BrewIssue:
     tickers: List[MarketTicker]
     sections: List[ContentSection]
     intro_blocks: List[ContentBlock] = None
+    extra_sections: List[ContentSection] = None
     markets_commentary: List[ContentBlock] = None
     word_of_day: Optional[str] = None
+    word_of_day_html: Optional[str] = None
     fetched_at: datetime = None
     status: str = 'ready'  # 'ready' | 'enriched' | 'audio_ready' | 'failed'
     slides: List[Slide] = None
@@ -110,6 +112,8 @@ class BrewIssue:
             self.markets_commentary = []
         if self.intro_blocks is None:
             self.intro_blocks = []
+        if self.extra_sections is None:
+            self.extra_sections = []
 
     def to_dict(self):
         return {
@@ -123,7 +127,9 @@ class BrewIssue:
             'tickers': [t.to_dict() for t in self.tickers],
             'markets_commentary': [b.to_dict() for b in self.markets_commentary],
             'sections': [s.to_dict() for s in self.sections],
+            'extra_sections': [s.to_dict() for s in self.extra_sections],
             'word_of_day': self.word_of_day,
+            'word_of_day_html': self.word_of_day_html,
             'fetched_at': self.fetched_at.isoformat() if isinstance(self.fetched_at, datetime) else self.fetched_at,
             'status': self.status,
             'slides': [sl.to_dict() for sl in self.slides]

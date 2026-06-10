@@ -115,6 +115,7 @@ def enrich_issue(event: firestore_fn.Event[firestore_fn.DocumentSnapshot | None]
         # Split marked sections
         sections_dict = raw_data.get('sections', [])
         sections_changed = False
+        extra_slides_dict = None
         
         for sec in sections_dict:
             if sec.get('needs_gemini_split'):
@@ -187,11 +188,42 @@ def enrich_issue(event: firestore_fn.Event[firestore_fn.DocumentSnapshot | None]
                 intro=raw_data.get('intro'),
                 intro_blocks=intro_blocks,
                 tickers=brew_tickers,
-                sections=reconstructed_sections
+                sections=reconstructed_sections,
+                extra_sections=[
+                    ContentSection(
+                        id=sec.get('id'),
+                        category=sec.get('category'),
+                        title=sec.get('title'),
+                        content_blocks=[
+                            ContentBlock(
+                                type=b.get('type', 'paragraph'),
+                                text=b.get('text', ''),
+                                body_html=b.get('body_html'),
+                                links=[
+                                    LinkRef(
+                                        url=l.get('url'),
+                                        anchor_text=l.get('anchor_text'),
+                                        section_id=l.get('section_id'),
+                                    )
+                                    for l in b.get('links', [])
+                                ],
+                            )
+                            for b in sec.get('content_blocks', [])
+                        ],
+                        image_url=sec.get('image_url'),
+                        image_caption=sec.get('image_caption'),
+                        is_tour_de_headlines=sec.get('is_tour_de_headlines', False),
+                        is_what_else_is_brewing=sec.get('is_what_else_is_brewing', False),
+                    )
+                    for sec in raw_data.get('extra_sections', [])
+                ],
+                word_of_day=raw_data.get('word_of_day'),
+                word_of_day_html=raw_data.get('word_of_day_html'),
             )
             
             builder = SlideBuilder()
             compiled_slides = builder.build_slides(reconstructed_issue)
+            extra_slides = builder.build_extra_slides(reconstructed_issue)
             
             # Re-map the enriched OpenGraph link tags to the newly compiled slides
             for slide in compiled_slides:
@@ -205,6 +237,10 @@ def enrich_issue(event: firestore_fn.Event[firestore_fn.DocumentSnapshot | None]
                         link.og_image = enriched.og_image
             
             slides_list = [s.to_dict() for s in compiled_slides]
+            extra_slides_dict = {
+                key: [slide.to_dict() for slide in slide_list]
+                for key, slide_list in extra_slides.items()
+            }
 
         # 4. Generate Gemini Link summaries where needed
         for slide in slides_list:
@@ -243,11 +279,15 @@ def enrich_issue(event: firestore_fn.Event[firestore_fn.DocumentSnapshot | None]
         _apply_tour_headline_slide_images(slides_list, tour_section_ids)
 
         # Update Firestore
-        get_db().collection('issues').document(date_key).update({
+        update_payload = {
             'slides': slides_list,
             'sections': sections_dict,
-            'status': 'enriched'
-        })
+            'status': 'enriched',
+        }
+        if sections_changed:
+            update_payload['extra_slides'] = extra_slides_dict or {}
+
+        get_db().collection('issues').document(date_key).update(update_payload)
         
         # Update Index status
         get_db().collection('issue_index').document(date_key).update({

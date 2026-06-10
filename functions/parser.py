@@ -8,9 +8,10 @@ from models import BrewIssue, ContentSection, ContentBlock, LinkRef, MarketTicke
 
 class MorningBrewParser:
     SKIP_CATEGORIES = {
-        'PLAY', 'SHARE THE BREW', 'QUIZ', 'READER POLL', 'ANSWER', 'RECS',
+        'SHARE THE BREW', 'QUIZ', 'READER POLL',
         'GAMES', 'SHARE', 'SPONSORED', 'AD', 'PROMOTION'
     }
+    EXTRA_CATEGORIES = {'RECS', 'PLAY', 'ANSWER'}
 
     def __init__(self, skip_sponsored: bool = True):
         self.skip_sponsored = skip_sponsored
@@ -64,6 +65,9 @@ class MorningBrewParser:
 
         # 4. Parse Sections
         sections = []
+        extra_sections = []
+        word_of_day_html = None
+        word_of_day = None
         story_roots: List = []
         seen_roots = set()
 
@@ -74,6 +78,8 @@ class MorningBrewParser:
                 story_roots.append(div)
 
         for container in body_soup.find_all(class_='story-content-container'):
+            if container.find_parent(class_='story-container'):
+                continue
             root_id = id(container)
             if root_id not in seen_roots:
                 seen_roots.add(root_id)
@@ -89,16 +95,53 @@ class MorningBrewParser:
 
         for index, div in enumerate(story_roots):
             section = self._parse_section(div, f"sec_{index:03d}")
-            if section:
-                # Filter unwanted sections
-                if section.category.upper() in self.SKIP_CATEGORIES:
-                    continue
-                if self.skip_sponsored and section.is_sponsored:
-                    continue
-                sections.append(section)
+            if not section:
+                continue
 
-        # 5. Word of Day
-        word_of_day = self._extract_word_of_day(body_soup)
+            category = section.category.upper()
+
+            if category in self.EXTRA_CATEGORIES:
+                extra_sections.append(section)
+                if category == 'ANSWER':
+                    wotd_word, wotd_html = self._extract_word_of_day_from_section(section)
+                    if wotd_word:
+                        word_of_day = wotd_word
+                    if wotd_html:
+                        word_of_day_html = wotd_html
+                continue
+
+            if section.title.strip().lower() == 'story highlight':
+                continue
+
+            if category in self.SKIP_CATEGORIES:
+                continue
+            if self.skip_sponsored and section.is_sponsored:
+                continue
+            sections.append(section)
+
+        # Main news ends at "What else is brewing" — drop anything after it from the deck
+        brewing_idx = next(
+            (index for index, section in enumerate(sections) if section.is_what_else_is_brewing),
+            None,
+        )
+        if brewing_idx is not None:
+            tail = sections[brewing_idx + 1:]
+            sections = sections[: brewing_idx + 1]
+            for section in tail:
+                cat = section.category.upper()
+                if cat in ('RECS', 'PLAY'):
+                    extra_sections.append(section)
+                elif cat == 'ANSWER':
+                    extra_sections.append(section)
+                    wotd_word, wotd_html = self._extract_word_of_day_from_section(section)
+                    if wotd_word:
+                        word_of_day = wotd_word
+                    if wotd_html:
+                        word_of_day_html = wotd_html
+
+        # 5. Word of Day fallback scan
+        if not word_of_day:
+            word_of_day = self._extract_word_of_day(body_soup)
 
         return BrewIssue(
             id=issue_id,
@@ -110,8 +153,10 @@ class MorningBrewParser:
             intro_blocks=intro_blocks,
             tickers=tickers,
             sections=sections,
+            extra_sections=extra_sections,
             markets_commentary=markets_commentary,
             word_of_day=word_of_day,
+            word_of_day_html=word_of_day_html,
             fetched_at=datetime.utcnow(),
             status='ready'
         )
@@ -142,6 +187,9 @@ class MorningBrewParser:
             h1 = div_soup.find('p', class_='h1') or div_soup.find('h1')
             if h1:
                 title = h1.get_text(strip=True)
+
+        if title.strip().lower() == 'story highlight' and category.upper() in self.EXTRA_CATEGORIES:
+            title = category.strip().title() if category else title
 
         # Skip ads early
         if 'AD' in category.upper() or 'SPONSORED' in category.upper():
@@ -187,6 +235,8 @@ class MorningBrewParser:
                 if child.find_parent(class_=re.compile(r'(title-container|tag-container|header-image-container)')):
                     continue
                 if child.find(class_='source') and len(text) < 120:
+                    continue
+                if child.name == 'placementslot':
                     continue
                 child_classes = child.get('class') or []
                 if 'h1' in child_classes:
@@ -240,7 +290,8 @@ class MorningBrewParser:
         if child.name in ['h2', 'h3']:
             b_type = 'subheading'
         elif child.name == 'li':
-            b_type = 'bullet'
+            parent_list = child.find_parent(['ol', 'ul'])
+            b_type = 'ordered_bullet' if parent_list and parent_list.name == 'ol' else 'bullet'
 
         return ContentBlock(
             type=b_type,
@@ -373,6 +424,23 @@ class MorningBrewParser:
             ))
 
         return blocks
+
+    def _extract_word_of_day_from_section(
+        self,
+        section: ContentSection,
+    ) -> tuple[Optional[str], Optional[str]]:
+        for block in section.content_blocks:
+            if 'word of the day' not in block.text.lower():
+                continue
+            match = re.search(
+                r"word of the day is:\s*([A-Za-z]+)",
+                block.text,
+                re.IGNORECASE,
+            )
+            word = match.group(1) if match else None
+            html = block.body_html or block.text
+            return word, html
+        return None, None
 
     def _extract_word_of_day(self, soup) -> Optional[str]:
         # Usually inside some specific headers or bold paragraphs

@@ -6,6 +6,7 @@ import { linkCardDurationMs } from '@lib/slideshow/timing';
 interface LinkCardsSkipButtonProps {
   slideId: string;
   totalSlides: number;
+  mainLastIndex: number;
   linkCount: number;
   durationMs?: number;
   paused?: boolean;
@@ -14,6 +15,7 @@ interface LinkCardsSkipButtonProps {
 export function LinkCardsSkipButton({
   slideId,
   totalSlides,
+  mainLastIndex,
   linkCount,
   durationMs = linkCardDurationMs(linkCount),
   paused = false,
@@ -62,7 +64,7 @@ export function LinkCardsSkipButton({
       }
       advancedRef.current = true;
       setSecondsLeft(0);
-      dispatch(nextSlide(totalSlides));
+      dispatch(nextSlide({ totalSlides, mainLastIndex }));
     }, remainingMs);
   }, [clearTimers, dispatch, getRemainingMs, totalSlides]);
 
@@ -92,7 +94,7 @@ export function LinkCardsSkipButton({
     }
     advancedRef.current = true;
     clearTimers();
-    dispatch(nextSlide(totalSlides));
+    dispatch(nextSlide({ totalSlides, mainLastIndex }));
   };
 
   return (

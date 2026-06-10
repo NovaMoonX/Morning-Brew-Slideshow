@@ -6,6 +6,7 @@ import type { Slide } from '@lib/models';
 interface TTSEngineProps {
   slide: Slide | null;
   totalSlides: number;
+  mainLastIndex: number;
   isAudioReady: boolean;
   onOpenTableOfContents?: () => void;
 }
@@ -13,15 +14,16 @@ interface TTSEngineProps {
 export function TTSEngine({
   slide,
   totalSlides,
+  mainLastIndex,
   isAudioReady,
   onOpenTableOfContents,
 }: TTSEngineProps) {
   const dispatch = useAppDispatch();
   const { isPlaying, isMuted, preferKokoroAudio } = useAppSelector((state) => state.slideshow);
   
-  const { activeMode } = useTTS({ slide, totalSlides, isAudioReady });
+  const { activeMode } = useTTS({ slide, totalSlides, mainLastIndex, isAudioReady });
 
-  if (!slide || slide.type === 'link_cards' || slide.type === 'end') {
+  if (!slide || slide.type === 'link_cards' || slide.type === 'end' || slide.type === 'extras_hub') {
     return null;
   }
 
