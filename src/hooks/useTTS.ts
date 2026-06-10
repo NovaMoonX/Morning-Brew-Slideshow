@@ -14,7 +14,6 @@ import {
   estimateDurationMs,
   LINK_CARD_DURATION_MS,
   MIN_READ_DURATION_MS,
-  SECTION_HERO_DURATION_MS,
 } from '@lib/slideshow/timing';
 
 export function useTTS({ slide, totalSlides }: UseTTSProps) {
@@ -116,7 +115,7 @@ export function useTTS({ slide, totalSlides }: UseTTSProps) {
     }
 
     if (activeSlide.type === 'section_hero') {
-      scheduleAdvance(SECTION_HERO_DURATION_MS);
+      // SectionHeroCountdown owns auto-advance timing for hero slides.
       return;
     }
 
