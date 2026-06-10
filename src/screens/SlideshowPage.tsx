@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAppDispatch, useAppSelector } from '@store/index';
 import { useIssue } from '@hooks/useIssue';
@@ -8,6 +8,7 @@ import {
   closeExtraSection,
   nextExtraSlide,
   prevExtraSlide,
+  togglePlay,
 } from '@store/slideshowSlice';
 import { SlideshowPlayer } from '@components/SlideshowPlayer';
 import { IssueTableOfContents } from '@components/IssueTableOfContents';
@@ -49,12 +50,31 @@ export function SlideshowPage() {
   const showExitButton = !activeExtra;
   const isPlaying = useAppSelector((state) => state.slideshow.isPlaying);
 
-  const { activeMode, secondsRemaining } = useTTS({
+  const {
+    activeMode,
+    secondsRemaining,
+    syncPausePlayback,
+    syncResumePlayback,
+    playSlideAudio,
+  } = useTTS({
     slide: activeSlide,
     totalSlides,
     mainLastIndex,
     isAudioReady,
   });
+
+  const handleTogglePlayback = useCallback(() => {
+    if (isPlaying) {
+      syncPausePlayback();
+      dispatch(togglePlay(false));
+      return;
+    }
+
+    if (!syncResumePlayback()) {
+      playSlideAudio();
+    }
+    dispatch(togglePlay(true));
+  }, [dispatch, isPlaying, playSlideAudio, syncPausePlayback, syncResumePlayback]);
 
   const showTopCountdown =
     !activeExtra &&
@@ -136,6 +156,7 @@ export function SlideshowPage() {
           totalSlides={totalSlides}
           tocOpen={tocOpen}
           onOpenTableOfContents={() => setTocOpen(true)}
+          onTogglePlayback={handleTogglePlayback}
           extraSlides={extraSlides}
           wordOfDayHtml={issue.word_of_day_html ?? null}
           wordOfDay={issue.word_of_day}
@@ -157,6 +178,7 @@ export function SlideshowPage() {
             slide={activeSlide}
             activeMode={activeMode}
             onOpenTableOfContents={() => setTocOpen(true)}
+            onTogglePlayback={handleTogglePlayback}
           />
         )}
 

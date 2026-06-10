@@ -1,5 +1,5 @@
 import { useAppDispatch, useAppSelector } from '@store/index';
-import { togglePlay, toggleMute, toggleAudioMode } from '@store/slideshowSlice';
+import { toggleMute, toggleAudioMode } from '@store/slideshowSlice';
 import { isDev } from '@lib/app/env';
 import { PlayIcon, PauseIcon, SpeakerWaveIcon, SpeakerXMarkIcon } from '@components/AudioIcons';
 import type { Slide } from '@lib/models';
@@ -8,12 +8,14 @@ interface TTSEngineProps {
   slide: Slide | null;
   activeMode: 'idle' | 'kokoro' | 'browser';
   onOpenTableOfContents?: () => void;
+  onTogglePlayback?: () => void;
 }
 
 export function TTSEngine({
   slide,
   activeMode,
   onOpenTableOfContents,
+  onTogglePlayback,
 }: TTSEngineProps) {
   const dispatch = useAppDispatch();
   const { isPlaying, isMuted, preferKokoroAudio } = useAppSelector((state) => state.slideshow);
@@ -35,7 +37,7 @@ export function TTSEngine({
       <div className="flex items-center justify-between gap-3 rounded-full border border-border bg-surface-glass px-4 py-3 shadow-xl backdrop-blur-md">
         <div className="flex shrink-0 items-center gap-2">
           <button
-            onClick={() => dispatch(togglePlay())}
+            onClick={() => onTogglePlayback?.()}
             className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-sky-500 text-white transition hover:bg-sky-400 focus:outline-none focus:ring-2 focus:ring-sky-500"
             aria-label={isPlaying ? 'Pause' : 'Play'}
           >

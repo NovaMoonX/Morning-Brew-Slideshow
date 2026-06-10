@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useAppDispatch, useAppSelector } from '@store/index';
-import { nextSlide, prevSlide, togglePlay, toggleMute } from '@store/slideshowSlice';
+import { nextSlide, prevSlide, toggleMute } from '@store/slideshowSlice';
 import type { Slide } from '@lib/models';
 import { SlideBody } from '@components/SlideBody';
 import { PlayIcon, PauseIcon, SpeakerWaveIcon, SpeakerXMarkIcon } from '@components/AudioIcons';
@@ -30,6 +30,7 @@ interface SlideshowPlayerProps {
   totalSlides: number;
   tocOpen?: boolean;
   onOpenTableOfContents?: () => void;
+  onTogglePlayback?: () => void;
   extraSlides?: ExtraSlidesMap;
   wordOfDayHtml?: string | null;
   wordOfDay?: string | null;
@@ -179,6 +180,7 @@ export function SlideshowPlayer({
   totalSlides,
   tocOpen = false,
   onOpenTableOfContents,
+  onTogglePlayback,
   extraSlides = {},
   wordOfDayHtml = null,
   wordOfDay = null,
@@ -214,7 +216,7 @@ export function SlideshowPlayer({
         dispatch(nextSlide({ totalSlides, mainLastIndex }));
       }
     } else {
-      dispatch(togglePlay());
+      onTogglePlayback?.();
     }
   };
 
@@ -549,10 +551,10 @@ export function SlideshowPlayer({
                 <div className="flex w-full justify-center pt-2">
                   <button
                     type="button"
-                    onClick={(event) => {
-                      event.stopPropagation();
-                      dispatch(togglePlay());
-                    }}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onTogglePlayback?.();
+                  }}
                     className="pointer-events-auto inline-flex size-16 items-center justify-center rounded-full bg-sky-600 text-white shadow-xl shadow-sky-600/25 transition hover:bg-sky-500 focus:outline-none focus:ring-2 focus:ring-sky-400 focus:ring-offset-2 focus:ring-offset-background"
                     aria-label={isPlaying ? 'Pause' : 'Play'}
                   >
