@@ -1,9 +1,15 @@
+import re
 import http_client
 from bs4 import BeautifulSoup
 from typing import List, Optional
-from urllib.parse import urlparse
+from urllib.parse import urlencode, urlparse
 from concurrent.futures import ThreadPoolExecutor
 from models import LinkRef
+
+_PATH_NOISE = frozenset({
+    'world', 'asia', 'europe', 'articles', 'article', 'news', 'politics',
+    'business', 'opinion', 'story', 'stories', 'live', 'us', 'uk',
+})
 
 class LinkEnricher:
     def __init__(self, timeout: int = 5, max_workers: int = 5):
@@ -37,6 +43,95 @@ class LinkEnricher:
             return None
         return hostname.removeprefix('www.')
 
+    @staticmethod
+    def title_from_url(url: str) -> Optional[str]:
+        """Derive a readable headline from the article URL path."""
+        segments = [s for s in urlparse(url).path.split('/') if s]
+        if not segments:
+            return None
+
+        meaningful = []
+        for segment in segments:
+            if re.fullmatch(r'\d{1,4}', segment):
+                continue
+            if segment.lower() in _PATH_NOISE:
+                continue
+            meaningful.append(segment)
+
+        if not meaningful:
+            meaningful = [segments[-1]]
+
+        slug = meaningful[-1]
+        slug = re.sub(r'\.(html?|php|aspx)$', '', slug, flags=re.I)
+        slug = re.sub(r'-[a-f0-9]{8,}$', '', slug, flags=re.I)
+        slug = slug.replace('-', ' ').strip()
+        if len(slug) < 4:
+            return None
+        return slug.title()
+
+    def _apply_metadata_fallbacks(self, link: LinkRef) -> None:
+        if not link.og_title:
+            link.og_title = self.title_from_url(link.url)
+
+        if not link.og_description and link.domain and link.og_title:
+            link.og_description = f"Read the full story on {link.domain}."
+
+    def _fetch_oembed_metadata(self, url: str) -> dict:
+        """Fetch publisher oEmbed data when direct OpenGraph scraping is blocked."""
+        hostname = self._hostname(url) or ''
+        result: dict = {}
+
+        try:
+            if 'nytimes.com' in hostname:
+                oembed_url = (
+                    'https://www.nytimes.com/svc/oembed/json/?'
+                    + urlencode({'url': url})
+                )
+                res = http_client.get(
+                    oembed_url,
+                    headers=self.headers,
+                    timeout=self.timeout,
+                )
+                if res.status_code == 200:
+                    data = res.json()
+                    result['title'] = data.get('title')
+                    result['description'] = data.get('summary')
+                    result['image'] = data.get('thumbnail_url')
+                    return result
+
+            noembed_url = (
+                'https://noembed.com/embed?'
+                + urlencode({'url': url})
+            )
+            res = http_client.get(
+                noembed_url,
+                headers=self.headers,
+                timeout=self.timeout,
+            )
+            if res.status_code == 200:
+                data = res.json()
+                if not data.get('error'):
+                    result['title'] = data.get('title')
+                    result['description'] = data.get('description')
+                    result['image'] = data.get('thumbnail_url')
+        except Exception as e:
+            print(f"oEmbed fetch failed for {url}: {e}")
+
+        return result
+
+    def _apply_oembed_fallbacks(self, link: LinkRef) -> None:
+        needs_oembed = not link.og_image or not link.og_title or not link.og_description
+        if not needs_oembed:
+            return
+
+        meta = self._fetch_oembed_metadata(link.url)
+        if not link.og_title and meta.get('title'):
+            link.og_title = meta['title']
+        if not link.og_description and meta.get('description'):
+            link.og_description = meta['description']
+        if not link.og_image and meta.get('image'):
+            link.og_image = meta['image']
+
     def enrich_link(self, link: LinkRef) -> LinkRef:
         """Enriches a single LinkRef with OpenGraph tags."""
         resolved_url = self.resolve_redirect(link.url)
@@ -46,6 +141,8 @@ class LinkEnricher:
         try:
             res = http_client.get(resolved_url, headers=self.headers, timeout=self.timeout)
             if res.status_code != 200:
+                self._apply_oembed_fallbacks(link)
+                self._apply_metadata_fallbacks(link)
                 return link
 
             soup = BeautifulSoup(res.text, 'html.parser')
@@ -86,7 +183,9 @@ class LinkEnricher:
             # and stage 2 will call gemini if og_description is lacking.
         except Exception as e:
             print(f"Failed to scrape og tags for {resolved_url}: {e}")
-            
+
+        self._apply_oembed_fallbacks(link)
+        self._apply_metadata_fallbacks(link)
         return link
 
     def enrich_all_links(self, links: List[LinkRef]) -> List[LinkRef]:

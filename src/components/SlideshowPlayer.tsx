@@ -1,16 +1,18 @@
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useAppDispatch } from '@store/index';
 import { nextSlide, prevSlide, togglePlay } from '@store/slideshowSlice';
 import type { Slide } from '@lib/models';
 import { SlideBody } from '@components/SlideBody';
-import { SlideLinkList } from '@components/SlideLinkList';
+import { SlideLinkList, filterSectionBodyLinks } from '@components/SlideLinkList';
 import { LinkExplorer } from '@components/LinkExplorer';
+import { LinkCardsSkipButton } from '@components/LinkCardsSkipButton';
 import { MarketsTable, parseMarketsSlide } from '@components/MarketsTable';
 import { SectionHeroCountdown } from '@components/SectionHeroCountdown';
 import {
   getSectionContext,
   resolveSlideImage,
 } from '@lib/slideshow/sectionContext';
+import { linkCardDurationMs } from '@lib/slideshow/timing';
 
 const FALLBACK_IMAGE =
   'https://images.unsplash.com/photo-1504711434969-e33886168f5c?w=1200&auto=format&fit=crop&q=80';
@@ -99,11 +101,13 @@ function SplitImageLayout({
   topOverlay,
   children,
   bottomPadding = 'pb-36 md:pb-40',
+  scrollable = true,
 }: {
   imageUrl: string;
   topOverlay?: React.ReactNode;
   children: React.ReactNode;
   bottomPadding?: string;
+  scrollable?: boolean;
 }) {
   return (
     <div className="absolute inset-0 flex flex-col bg-slate-950">
@@ -118,12 +122,16 @@ function SplitImageLayout({
       </div>
 
       <div
-        className={`flex h-1/2 min-h-0 flex-col bg-gradient-to-b from-slate-950 to-slate-950 px-6 pt-4 md:px-10 md:pt-6 ${bottomPadding}`}
+        className={`flex h-1/2 min-h-0 flex-col overflow-hidden bg-gradient-to-b from-slate-950 to-slate-950 px-6 pt-4 md:px-10 md:pt-6 ${bottomPadding}`}
       >
         <div className="mx-auto flex min-h-0 w-full max-w-xl flex-1 flex-col overflow-hidden">
-          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
-            <div className="space-y-3 pb-4">{children}</div>
-          </div>
+          {scrollable ? (
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+              <div className="space-y-3 pb-4">{children}</div>
+            </div>
+          ) : (
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{children}</div>
+          )}
         </div>
       </div>
     </div>
@@ -169,6 +177,10 @@ export function SlideshowPlayer({
   const sectionLabel = slide.section_label || 'DAILY ISSUE';
   const sectionTitle = sectionContext.title;
   const sectionImageUrl = sectionContext.imageUrl ?? slide.image_url;
+  const visibleLinkCount = useMemo(
+    () => filterSectionBodyLinks(slide.links, sectionTitle).length,
+    [slide.links, sectionTitle],
+  );
   const usesSectionLayout =
     Boolean(sectionImageUrl) &&
     (slide.type === 'section_hero' ||
@@ -179,10 +191,29 @@ export function SlideshowPlayer({
   const usesMarketsLayout = slide.type === 'markets';
   const usesSplitLayout = usesSectionLayout || usesIntroSplitLayout || usesMarketsLayout;
   const showSkipButton = slide.type === 'link_cards';
+  const [linkCardsPaused, setLinkCardsPaused] = useState(false);
 
-  const handleSkip = (event: React.MouseEvent) => {
-    event.stopPropagation();
-    dispatch(nextSlide(totalSlides));
+  useEffect(() => {
+    setLinkCardsPaused(false);
+  }, [slide.id]);
+
+  useEffect(() => {
+    if (slide.type !== 'link_cards') {
+      return;
+    }
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        setLinkCardsPaused(false);
+      }
+    };
+
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => document.removeEventListener('visibilitychange', handleVisibility);
+  }, [slide.id, slide.type]);
+
+  const handleLinkRead = () => {
+    setLinkCardsPaused(true);
   };
 
   const renderBodyContent = () => {
@@ -246,7 +277,8 @@ export function SlideshowPlayer({
               <SectionHeader label={sectionLabel} title={sectionTitle} />
             )
           }
-          bottomPadding={showSkipButton ? 'pb-44 md:pb-48' : 'pb-36 md:pb-40'}
+          bottomPadding={showSkipButton ? 'pb-20 md:pb-24' : 'pb-36 md:pb-40'}
+          scrollable={slide.type !== 'link_cards'}
         >
           {slide.type === 'section_hero' && (
             <SectionHeroCountdown
@@ -277,6 +309,8 @@ export function SlideshowPlayer({
               embedded
               showSkip={false}
               sectionTitle={sectionTitle}
+              sectionImageUrl={sectionImageUrl}
+              onReadClick={handleLinkRead}
             />
           )}
         </SplitImageLayout>
@@ -317,13 +351,13 @@ export function SlideshowPlayer({
           SLIDE {currentIndex + 1} OF {totalSlides}
         </div>
         {showSkipButton && (
-          <button
-            type="button"
-            onClick={handleSkip}
-            className="pointer-events-auto rounded-full border border-slate-800 bg-slate-900 px-8 py-2.5 text-xs font-bold uppercase tracking-wider text-slate-300 shadow-lg transition hover:text-white"
-          >
-            Skip to Next Story
-          </button>
+          <LinkCardsSkipButton
+            slideId={slide.id}
+            totalSlides={totalSlides}
+            linkCount={visibleLinkCount}
+            durationMs={linkCardDurationMs(visibleLinkCount)}
+            paused={linkCardsPaused}
+          />
         )}
       </div>
     </div>

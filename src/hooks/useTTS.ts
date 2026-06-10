@@ -10,11 +10,7 @@ interface UseTTSProps {
   isAudioReady: boolean;
 }
 
-import {
-  estimateDurationMs,
-  LINK_CARD_DURATION_MS,
-  MIN_READ_DURATION_MS,
-} from '@lib/slideshow/timing';
+import { estimateDurationMs, MIN_READ_DURATION_MS } from '@lib/slideshow/timing';
 
 export function useTTS({ slide, totalSlides }: UseTTSProps) {
   const dispatch = useAppDispatch();
@@ -110,7 +106,7 @@ export function useTTS({ slide, totalSlides }: UseTTSProps) {
     const text = speakableText(activeSlide);
 
     if (activeSlide.type === 'link_cards') {
-      scheduleAdvance(LINK_CARD_DURATION_MS);
+      // LinkCardsSkipButton owns auto-advance timing for link card slides.
       return;
     }
 

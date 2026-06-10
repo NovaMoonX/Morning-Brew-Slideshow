@@ -207,16 +207,32 @@ def enrich_issue(event: firestore_fn.Event[firestore_fn.DocumentSnapshot | None]
         # 4. Generate Gemini Link summaries where needed
         for slide in slides_list:
             for link in slide.get('links', []):
-                # If og desc lacking, get a clean 2-sentence summary of the page using Gemini Flash
                 if not link.get('og_description') or len(link.get('og_description', '')) < 80:
                     try:
                         res = http_client.get(link.get('url'), timeout=5)
+                        summary = None
                         if res.status_code == 200:
                             summary = gemini.summarize_article(link.get('url'), res.text)
-                            if summary:
-                                link['gemini_summary'] = summary
+                        if not summary:
+                            summary = gemini.summarize_link_metadata(
+                                link.get('url'),
+                                link.get('domain'),
+                                link.get('anchor_text'),
+                            )
+                        if summary:
+                            link['gemini_summary'] = summary
+                            if not link.get('og_description'):
+                                link['og_description'] = summary
                     except Exception as sum_err:
                         print(f"Summary scrape failed: {sum_err}")
+
+        from link_enrichment import _apply_section_image_fallbacks
+        section_images = {
+            sec.get('id'): sec.get('image_url')
+            for sec in sections_dict
+            if sec.get('image_url')
+        }
+        _apply_section_image_fallbacks(slides_list, section_images)
 
         # Update Firestore
         get_db().collection('issues').document(date_key).update({

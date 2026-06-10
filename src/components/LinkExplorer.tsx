@@ -2,6 +2,11 @@ import { useAppDispatch } from '@store/index';
 import { nextSlide } from '@store/slideshowSlice';
 import type { LinkRef } from '@lib/models';
 import { getLinkDisplayDomain } from '@lib/links/domain';
+import {
+  getLinkDisplayDescription,
+  getLinkDisplayImage,
+  getLinkDisplayTitle,
+} from '@lib/links/display';
 import { filterSectionBodyLinks } from '@components/SlideLinkList';
 
 interface LinkExplorerProps {
@@ -10,6 +15,8 @@ interface LinkExplorerProps {
   showSkip?: boolean;
   totalSlides?: number;
   sectionTitle?: string | null;
+  sectionImageUrl?: string | null;
+  onReadClick?: () => void;
 }
 
 export function LinkExplorer({
@@ -18,6 +25,8 @@ export function LinkExplorer({
   showSkip = true,
   totalSlides = 999,
   sectionTitle = null,
+  sectionImageUrl = null,
+  onReadClick,
 }: LinkExplorerProps) {
   const dispatch = useAppDispatch();
   const visibleLinks = filterSectionBodyLinks(links, sectionTitle);
@@ -28,7 +37,7 @@ export function LinkExplorer({
   };
 
   const containerClass = embedded
-    ? 'flex shrink-0 flex-col'
+    ? 'flex shrink-0 flex-col overflow-hidden'
     : 'absolute bottom-16 left-0 right-0 z-30 flex flex-col p-4 w-full select-none';
 
   if (visibleLinks.length === 0) {
@@ -54,49 +63,75 @@ export function LinkExplorer({
   return (
     <div className={containerClass} onClick={(event) => event.stopPropagation()}>
       {embedded && (
-        <div className="mb-3 shrink-0 text-center">
-          <h2 className="text-base font-bold md:text-lg">Want to know more?</h2>
-          <p className="mt-1 text-xs text-slate-400">Related articles from this story.</p>
+        <div className="mb-2 shrink-0 text-center">
+          <h2 className="text-sm font-bold md:text-base">Want to know more?</h2>
+          <p className="mt-0.5 text-[10px] text-slate-400 md:text-xs">
+            Related articles from this story.
+          </p>
         </div>
       )}
 
       <div
-        className={`flex gap-3 overflow-x-auto scrollbar-hide snap-x w-full ${
-          embedded ? 'shrink-0 pb-1' : 'pb-4 px-4'
+        className={`flex w-full gap-3 overflow-x-auto scrollbar-hide snap-x snap-mandatory ${
+          embedded ? 'shrink-0 items-stretch pb-0 scroll-pl-0' : 'items-stretch pb-4 px-4'
         }`}
       >
         {visibleLinks.map((link, index) => {
           const domain = getLinkDisplayDomain(link);
-          const ogTitle = link.og_title || link.anchor_text || 'Related article';
-          const ogDesc =
-            link.og_description || 'Tap read article to explore the full story in Morning Brew.';
-          const ogImg =
-            link.og_image ||
-            'https://images.unsplash.com/photo-1457369804613-52c61a468e7d?w=400&auto=format&fit=crop&q=80';
+          const title = getLinkDisplayTitle(link);
+          const description = getLinkDisplayDescription(link);
+          const imageUrl = getLinkDisplayImage(link, sectionImageUrl);
 
           return (
             <div
               key={`${link.url}-${index}`}
-              className="flex w-56 shrink-0 snap-center flex-col overflow-hidden rounded-2xl border border-slate-800/80 bg-slate-900/90 text-white shadow-xl backdrop-blur-md md:w-64"
+              className={`flex shrink-0 snap-start flex-col overflow-hidden rounded-xl border border-slate-800/80 bg-slate-900/90 text-white shadow-xl backdrop-blur-md ${
+                embedded
+                  ? 'w-[calc(100%-1.25rem)] max-w-md'
+                  : 'w-[calc(100%-2rem)] max-w-md snap-center'
+              }`}
             >
-              <div className="relative h-20 w-full bg-slate-950 md:h-24">
-                <img src={ogImg} alt="" className="h-full w-full object-cover" />
-                <span className="absolute top-2 left-2 rounded-md bg-slate-950/80 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-300">
+              <div className={`relative w-full shrink-0 bg-slate-950 ${embedded ? 'h-24' : 'h-24 md:h-28'}`}>
+                <img src={imageUrl} alt="" className="h-full w-full object-cover" />
+                <span className="absolute top-1.5 left-1.5 rounded-md bg-slate-950/80 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-slate-300">
                   {domain}
                 </span>
               </div>
 
-              <div className="flex flex-1 flex-col p-3 md:p-4">
-                <h3 className="text-sm font-bold leading-snug line-clamp-2">{ogTitle}</h3>
-                <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-slate-400">{ogDesc}</p>
+              <div
+                className={
+                  embedded
+                    ? 'flex min-h-0 flex-1 flex-col p-2.5'
+                    : 'flex min-h-0 flex-1 flex-col p-3 md:p-4'
+                }
+              >
+                <h3
+                  className={`shrink-0 font-bold leading-snug line-clamp-2 ${
+                    embedded ? 'text-xs' : 'text-sm'
+                  }`}
+                >
+                  {title}
+                </h3>
+                <p
+                  className={`mt-0.5 min-h-0 flex-1 line-clamp-2 leading-snug text-slate-400 ${
+                    embedded ? 'text-[11px]' : 'text-xs leading-relaxed'
+                  }`}
+                >
+                  {description}
+                </p>
 
-                <div className="mt-3">
+                <div className={`shrink-0 ${embedded ? 'mt-2' : 'mt-3'}`}>
                   <a
                     href={link.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    onClick={(event) => event.stopPropagation()}
-                    className="flex w-full items-center justify-center gap-1.5 rounded-lg bg-sky-600 py-2 text-xs font-semibold text-white transition hover:bg-sky-500"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      onReadClick?.();
+                    }}
+                    className={`flex w-full items-center justify-center gap-1 rounded-lg bg-sky-600 font-semibold text-white transition hover:bg-sky-500 ${
+                      embedded ? 'py-1.5 text-[10px]' : 'py-2 text-xs'
+                    }`}
                   >
                     <span>Read</span>
                     <svg

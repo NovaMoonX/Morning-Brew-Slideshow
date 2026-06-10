@@ -31,6 +31,21 @@ class MockGeminiUtil:
         """Pass-through: returns None (no summary generated)."""
         return None
 
+    def summarize_link_metadata(
+        self,
+        url: str,
+        domain: Optional[str] = None,
+        anchor_text: Optional[str] = None,
+    ) -> Optional[str]:
+        """Mock: derive a short teaser from the URL slug."""
+        from enrichment import LinkEnricher
+
+        title = LinkEnricher.title_from_url(url)
+        if not title:
+            return None
+        source = domain or 'the publisher'
+        return f"Coverage from {source} on {title.lower()}."
+
 
 def get_gemini_util():
     """Factory that returns MockGeminiUtil or GeminiUtil based on USE_MOCK_GEMINI."""
@@ -119,3 +134,37 @@ Article text:
         except Exception as e:
             print(f"Gemini summarization failed for {url}: {e}")
             return None
+
+    def summarize_link_metadata(
+        self,
+        url: str,
+        domain: Optional[str] = None,
+        anchor_text: Optional[str] = None,
+    ) -> Optional[str]:
+        """Generate a teaser when OpenGraph scraping is blocked."""
+        if not self.enabled:
+            return MockGeminiUtil().summarize_link_metadata(url, domain, anchor_text)
+
+        from enrichment import LinkEnricher
+
+        inferred_title = LinkEnricher.title_from_url(url)
+        prompt = f"""
+Write a 1-2 sentence teaser for a news article based on its URL and source.
+Write naturally for someone who will hear this read aloud.
+Do not mention paywalls, subscriptions, or that you inferred this from a URL.
+
+URL: {url}
+Source: {domain or 'unknown'}
+Newsletter link text: {anchor_text or 'none'}
+Inferred topic from URL: {inferred_title or 'unknown'}
+
+Return only the teaser text.
+"""
+        try:
+            model = genai.GenerativeModel(self.model_name)
+            response = model.generate_content(prompt)
+            summary = response.text.strip()
+            return summary or None
+        except Exception as e:
+            print(f"Gemini link metadata failed for {url}: {e}")
+            return MockGeminiUtil().summarize_link_metadata(url, domain, anchor_text)
