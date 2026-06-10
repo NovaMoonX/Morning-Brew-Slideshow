@@ -76,7 +76,7 @@ const slideshowSlice = createSlice({
     },
     resetPlayer: (state) => {
       state.currentSlideIndex = 0;
-      state.isPlaying = true;
+      state.isPlaying = false;
       state.activeExtra = null;
       state.extraSlideIndex = 0;
     },

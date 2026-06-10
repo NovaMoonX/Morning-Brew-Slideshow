@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { useAppDispatch } from '@store/index';
+import { useAppDispatch, useAppSelector } from '@store/index';
 import { nextSlide } from '@store/slideshowSlice';
 import { SECTION_HERO_DURATION_MS } from '@lib/slideshow/timing';
 
@@ -21,6 +21,7 @@ export function SectionHeroCountdown({
   durationMs = SECTION_HERO_DURATION_MS,
 }: SectionHeroCountdownProps) {
   const dispatch = useAppDispatch();
+  const isPlaying = useAppSelector((state) => state.slideshow.isPlaying);
   const totalSeconds = Math.max(1, Math.ceil(durationMs / 1000));
   const [secondsLeft, setSecondsLeft] = useState(totalSeconds);
   const advancedRef = useRef(false);
@@ -28,6 +29,11 @@ export function SectionHeroCountdown({
   useEffect(() => {
     advancedRef.current = false;
     setSecondsLeft(totalSeconds);
+
+    if (!isPlaying) {
+      return;
+    }
+
     const startedAt = Date.now();
 
     const tickTimer = window.setInterval(() => {
@@ -50,10 +56,10 @@ export function SectionHeroCountdown({
       window.clearInterval(tickTimer);
       window.clearTimeout(advanceTimer);
     };
-  }, [slideId, durationMs, totalSeconds, dispatch, totalSlides]);
+  }, [slideId, durationMs, totalSeconds, dispatch, totalSlides, mainLastIndex, isPlaying]);
 
   return (
-    <div className="flex min-h-[14rem] flex-col items-center justify-center px-4 py-4 text-center">
+    <div className="flex flex-col items-center px-4 py-8 text-center">
       <span className="text-xs font-bold uppercase tracking-[0.25em] text-sky-400">
         {sectionLabel}
       </span>
@@ -62,12 +68,18 @@ export function SectionHeroCountdown({
           {sectionTitle}
         </h2>
       )}
-      <p className="mt-6 text-xs font-semibold uppercase tracking-[0.2em] text-muted">
-        Story starts in
-      </p>
-      <p className="mt-3 text-7xl font-extrabold tabular-nums leading-none text-sky-400 md:text-8xl">
-        {secondsLeft}
-      </p>
+      {isPlaying ? (
+        <>
+          <p className="mt-6 text-xs font-semibold uppercase tracking-[0.2em] text-muted">
+            Story starts in
+          </p>
+          <p className="mt-3 text-7xl font-extrabold tabular-nums leading-none text-sky-400 md:text-8xl">
+            {secondsLeft}
+          </p>
+        </>
+      ) : (
+        <p className="mt-6 text-sm text-muted">Tap play when you&apos;re ready to continue.</p>
+      )}
     </div>
   );
 }
