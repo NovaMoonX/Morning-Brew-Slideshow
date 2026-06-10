@@ -192,60 +192,76 @@ class SlideBuilder:
             items.append(f'<li>{inner}</li>')
         return f'<ul class="slide-bullets">{"".join(items)}</ul>'
 
-    def _bullet_group_links(
+    def _blocks_to_html(self, blocks: List[ContentBlock]) -> str:
+        parts: List[str] = []
+        i = 0
+        while i < len(blocks):
+            block = blocks[i]
+            if block.type == 'bullet':
+                j = i
+                while j < len(blocks) and blocks[j].type == 'bullet':
+                    j += 1
+                parts.append(self._bullet_list_html(blocks[i:j]))
+                i = j
+                continue
+
+            if block.body_html:
+                parts.append(f'<p>{block.body_html}</p>')
+            else:
+                parts.append(f'<p>{block.text}</p>')
+            i += 1
+        return ''.join(parts)
+
+    def _blocks_to_plain_text(self, blocks: List[ContentBlock]) -> str:
+        lines: List[str] = []
+        for block in blocks:
+            if block.type == 'bullet':
+                lines.append(f'• {block.text}')
+            else:
+                lines.append(block.text)
+        return '\n'.join(lines)
+
+    def _collect_block_links(
         self,
         section: ContentSection,
-        lead_block: Optional[ContentBlock],
-        bullet_blocks: List[ContentBlock],
+        blocks: List[ContentBlock],
     ) -> List[LinkRef]:
         links: List[LinkRef] = []
-        if lead_block:
-            links.extend(
-                link for link in lead_block.links if self._is_body_content_link(link, section)
-            )
-        for block in bullet_blocks:
+        for block in blocks:
             links.extend(
                 link for link in block.links if self._is_body_content_link(link, section)
             )
         return links
 
-    def _make_bullet_group_slide(
+    def _make_content_group_slide(
         self,
         section: ContentSection,
         sec_id: str,
         order: int,
         b_idx: int,
-        lead_block: Optional[ContentBlock],
-        bullet_blocks: List[ContentBlock],
+        header_block: Optional[ContentBlock],
+        content_blocks: List[ContentBlock],
+        slide_id_suffix: str = 'group',
     ) -> Slide:
         title = ''
-        if lead_block and lead_block.type == 'subheading':
-            title = lead_block.text.strip()
+        blocks_to_render = list(content_blocks)
 
-        html_parts: List[str] = []
-        body_lines: List[str] = []
-
-        if lead_block:
-            if lead_block.body_html:
-                html_parts.append(f'<p>{lead_block.body_html}</p>')
+        if header_block:
+            if header_block.type == 'subheading':
+                title = header_block.text.strip()
             else:
-                html_parts.append(f'<p>{lead_block.text}</p>')
-            body_lines.append(lead_block.text)
+                blocks_to_render = [header_block] + blocks_to_render
 
-        html_parts.append(self._bullet_list_html(bullet_blocks))
-        for block in bullet_blocks:
-            body_lines.append(f'• {block.text}')
-
-        body_links = self._bullet_group_links(section, lead_block, bullet_blocks)
+        body_links = self._collect_block_links(section, blocks_to_render)
 
         return Slide(
-            id=f"{sec_id}_bullets_{b_idx:02d}_{order:03d}",
+            id=f"{sec_id}_{slide_id_suffix}_{b_idx:02d}_{order:03d}",
             type='body',
             section_id=sec_id,
             section_label=section.category,
             title=title,
-            body='\n'.join(body_lines),
-            body_html=''.join(html_parts),
+            body=self._blocks_to_plain_text(blocks_to_render),
+            body_html=self._blocks_to_html(blocks_to_render),
             links=body_links,
             order=order,
         )
@@ -284,18 +300,31 @@ class SlideBuilder:
         while i < len(blocks):
             block = blocks[i]
 
-            if block.type in ('subheading', 'paragraph'):
+            if block.type == 'subheading':
+                j = i + 1
+                while j < len(blocks) and blocks[j].type != 'subheading':
+                    j += 1
+                group_blocks = blocks[i + 1:j]
+                slide = self._make_content_group_slide(
+                    section, sec_id, order, i, block, group_blocks, 'section'
+                )
+                slides.append(slide)
+                all_links.extend(slide.links)
+                order += 1
+                i = j
+                continue
+
+            if block.type == 'paragraph':
                 j = i + 1
                 while j < len(blocks) and blocks[j].type == 'bullet':
                     j += 1
                 if j > i + 1:
                     bullet_blocks = blocks[i + 1:j]
-                    slide = self._make_bullet_group_slide(
-                        section, sec_id, order, i, block, bullet_blocks
+                    slide = self._make_content_group_slide(
+                        section, sec_id, order, i, block, bullet_blocks, 'bullets'
                     )
                     slides.append(slide)
-                    for link in slide.links:
-                        all_links.append(link)
+                    all_links.extend(slide.links)
                     order += 1
                     i = j
                     continue
@@ -305,12 +334,11 @@ class SlideBuilder:
                 while j < len(blocks) and blocks[j].type == 'bullet':
                     j += 1
                 bullet_blocks = blocks[i:j]
-                slide = self._make_bullet_group_slide(
-                    section, sec_id, order, i, None, bullet_blocks
+                slide = self._make_content_group_slide(
+                    section, sec_id, order, i, None, bullet_blocks, 'bullets'
                 )
                 slides.append(slide)
-                for link in slide.links:
-                    all_links.append(link)
+                all_links.extend(slide.links)
                 order += 1
                 i = j
                 continue
