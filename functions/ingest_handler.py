@@ -1,4 +1,5 @@
 from datetime import datetime
+from typing import Literal
 
 import http_client
 from firebase_db import PROJECT_ID, get_db
@@ -8,17 +9,24 @@ from slide_builder import SlideBuilder
 ARCHIVE_BASE_URL = "https://www.morningbrew.com"
 LATEST_ISSUE_URL = f"{ARCHIVE_BASE_URL}/issues/latest"
 FIRESTORE_TIMEOUT_SEC = 30
+IngestMode = Literal['http', 'scheduled']
 
 
 def _log(message: str) -> None:
     print(f"[ingest] {message}", flush=True)
 
 
-def handle_ingest_issue(req) -> tuple[str, int]:
-    """Download the latest Morning Brew newsletter and compile slides."""
-    date_param = req.args.get('date')  # YYYY-MM-DD
-    force_write = req.args.get('force') == 'true'
+def ingest_latest_issue(
+    *,
+    date_param: str | None = None,
+    force_write: bool = False,
+    mode: IngestMode = 'http',
+) -> tuple[str, int]:
+    """Fetch, parse, build, and persist the latest Morning Brew issue.
 
+    http mode writes status=enriched with inline link enrichment (dev/manual HTTP).
+    scheduled mode writes status=ready and defers enrichment/audio to Firestore triggers.
+    """
     target_date = date_param
     url = LATEST_ISSUE_URL
     if date_param:
@@ -37,7 +45,7 @@ def handle_ingest_issue(req) -> tuple[str, int]:
         _log("Parsing issue HTML")
         parser = MorningBrewParser()
         issue = parser.parse_issue(response.text, target_date)
-        actual_date = issue.id  # YYYY-MM-DD
+        actual_date = issue.id
         _log(f"Parsed issue {actual_date}: {issue.title!r}")
 
         if not force_write:
@@ -61,21 +69,24 @@ def handle_ingest_issue(req) -> tuple[str, int]:
         extra_slides = builder.build_extra_slides(issue)
 
         slides_list = [s.to_dict() for s in issue.slides]
-        section_images = {
-            section.id: section.image_url
-            for section in issue.sections
-            if section.image_url
-        }
-        tour_section_ids = {
-            section.id for section in issue.sections if section.is_tour_de_headlines
-        }
-        _log("Enriching link metadata")
-        from link_enrichment import enrich_slide_links
-        enrich_slide_links(
-            slides_list,
-            section_images=section_images,
-            tour_section_ids=tour_section_ids,
-        )
+        issue_status = 'ready' if mode == 'scheduled' else 'enriched'
+
+        if mode == 'http':
+            section_images = {
+                section.id: section.image_url
+                for section in issue.sections
+                if section.image_url
+            }
+            tour_section_ids = {
+                section.id for section in issue.sections if section.is_tour_de_headlines
+            }
+            _log("Enriching link metadata")
+            from link_enrichment import enrich_slide_links
+            enrich_slide_links(
+                slides_list,
+                section_images=section_images,
+                tour_section_ids=tour_section_ids,
+            )
 
         _log(f"Writing issue {actual_date} to Firestore ({len(slides_list)} slides)")
         try:
@@ -85,7 +96,7 @@ def handle_ingest_issue(req) -> tuple[str, int]:
                 key: [slide.to_dict() for slide in slide_list]
                 for key, slide_list in extra_slides.items()
             }
-            issue_dict['status'] = 'enriched'
+            issue_dict['status'] = issue_status
             get_db().collection('issues').document(actual_date).set(
                 issue_dict, timeout=FIRESTORE_TIMEOUT_SEC
             )
@@ -94,7 +105,7 @@ def handle_ingest_issue(req) -> tuple[str, int]:
                 'date': issue.date,
                 'title': issue.title,
                 'primary_image_url': issue.primary_image_url,
-                'status': 'enriched',
+                'status': issue_status,
                 'fetched_at': datetime.utcnow().isoformat()
             }, timeout=FIRESTORE_TIMEOUT_SEC)
         except Exception as firestore_err:
@@ -113,3 +124,14 @@ def handle_ingest_issue(req) -> tuple[str, int]:
     except Exception as e:
         _log(f"Failed: {e}")
         return f"Ingest failed: {str(e)}", 500
+
+
+def handle_ingest_issue(req) -> tuple[str, int]:
+    """Download the latest Morning Brew newsletter and compile slides."""
+    date_param = req.args.get('date')
+    force_write = req.args.get('force') == 'true'
+    return ingest_latest_issue(
+        date_param=date_param,
+        force_write=force_write,
+        mode='http',
+    )

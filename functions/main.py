@@ -7,7 +7,7 @@ from bs4 import BeautifulSoup
 
 import http_client
 from firebase_db import get_db
-from ingest_handler import handle_ingest_issue, ARCHIVE_BASE_URL, LATEST_ISSUE_URL
+from ingest_handler import handle_ingest_issue, ingest_latest_issue, ARCHIVE_BASE_URL, LATEST_ISSUE_URL
 
 from parser import MorningBrewParser
 from slide_builder import SlideBuilder
@@ -43,7 +43,6 @@ def _fetch_issue_slugs_from_archive(limit: int) -> list:
 @https_fn.on_request(
     timeout_sec=120,
     memory=512,
-    invoker="public",
     cors=options.CorsOptions(
         cors_origins="*",
         cors_methods=["GET", "POST", "OPTIONS"],
@@ -400,51 +399,26 @@ def cleanup_old_issues(req: https_fn.Request) -> https_fn.Response:
         return https_fn.Response(f"Cleanup failed: {str(e)}", status=500)
 
 
-# 5. FUNCTION: Scheduled Daily Ingest (6am ET, retries every 20 min for 2 hours)
+# 5. FUNCTION: Scheduled Daily Ingest (6am ET, retries every 20 min for up to ~80 min)
 @scheduler_fn.on_schedule(
     schedule="0 6 * * *",
     timezone="America/New_York",
-    retry_count=6,
+    retry_count=4,
     min_backoff_seconds=1200,
     max_backoff_seconds=1200,
     max_doublings=0,
+    memory=512,
+    timeout_sec=120,
 )
 def scheduled_ingest_issue(event: scheduler_fn.ScheduledEvent) -> None:
     """Runs daily at 6am ET. Ingests today's issue. Cloud Scheduler retries every 20 min
-    (up to 6 times = 2 hours) if the function raises an exception."""
+    (up to 4 times) if the function raises an exception."""
 
-    url = LATEST_ISSUE_URL
-    response = http_client.get(url, timeout=15)
-
-    if response.status_code != 200:
-        # Raise so Cloud Scheduler retries per the retry config above
-        raise RuntimeError(
-            f"Morning Brew returned HTTP {response.status_code} for latest issue URL. "
-            "Cloud Scheduler will retry in 20 minutes."
-        )
-
-    parser = MorningBrewParser()
-    issue = parser.parse_issue(response.text, None)
-    actual_date = issue.id
-
-    # Skip if already ingested
-    if get_db().collection('issues').document(actual_date).get().exists:
-        print(f"Scheduled ingest: issue {actual_date} already exists. Skipping.")
+    body, status = ingest_latest_issue(mode='scheduled')
+    if status == 200:
+        print(body)
         return
-
-    builder = SlideBuilder()
-    issue.slides = builder.build_slides(issue)
-
-    get_db().collection('issues').document(actual_date).set(issue.to_dict())
-    get_db().collection('issue_index').document(actual_date).set({
-        'id': actual_date,
-        'date': issue.date,
-        'title': issue.title,
-        'primary_image_url': issue.primary_image_url,
-        'status': 'ready',
-        'fetched_at': datetime.utcnow().isoformat()
-    })
-    print(f"Scheduled ingest completed for {actual_date}. Total slides: {len(issue.slides)}")
+    raise RuntimeError(body)
 
 
 # 6. FUNCTION: Backfill Issues (HTTP, user-triggered)
