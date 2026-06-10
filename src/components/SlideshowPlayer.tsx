@@ -549,27 +549,28 @@ export function SlideshowPlayer({
                     )}
                   </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={(event) => {
-                    event.stopPropagation();
-                    dispatch(toggleMute());
-                  }}
-                  className={`pointer-events-auto mx-auto inline-flex items-center gap-2 rounded-full px-4 py-2 text-xs font-semibold uppercase tracking-wider transition focus:outline-none focus:ring-2 focus:ring-sky-500 ${
-                    isMuted
-                      ? 'bg-rose-500/15 text-rose-500 hover:bg-rose-500/25 dark:text-rose-400'
-                      : 'text-muted hover:bg-surface-elevated hover:text-foreground'
-                  }`}
-                  aria-label={isMuted ? 'Unmute' : 'Mute'}
-                  aria-pressed={isMuted}
-                >
-                  {isMuted ? (
-                    <SpeakerXMarkIcon className="size-4" />
-                  ) : (
-                    <SpeakerWaveIcon className="size-4" />
-                  )}
-                  {isMuted ? 'Unmute' : 'Mute'}
-                </button>
+                <div className="flex w-full justify-center">
+                  <button
+                    type="button"
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      dispatch(toggleMute());
+                    }}
+                    className={`pointer-events-auto inline-flex size-10 items-center justify-center rounded-full transition focus:outline-none focus:ring-2 focus:ring-sky-500 ${
+                      isMuted
+                        ? 'border border-rose-500/35 bg-rose-500/10 text-rose-600 dark:text-rose-400'
+                        : 'text-muted hover:bg-surface-elevated hover:text-foreground'
+                    }`}
+                    aria-label={isMuted ? 'Unmute' : 'Mute'}
+                    aria-pressed={isMuted}
+                  >
+                    {isMuted ? (
+                      <SpeakerXMarkIcon className="size-5" />
+                    ) : (
+                      <SpeakerWaveIcon className="size-5" />
+                    )}
+                  </button>
+                </div>
               </div>
             )}
 

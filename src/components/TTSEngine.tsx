@@ -101,7 +101,7 @@ export function TTSEngine({
           onClick={() => dispatch(toggleMute())}
           className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full transition focus:outline-none focus:ring-2 focus:ring-sky-500 ${
             isMuted
-              ? 'bg-rose-500/15 text-rose-500 hover:bg-rose-500/25 dark:text-rose-400'
+              ? 'border border-rose-500/35 bg-rose-500/10 text-rose-600 dark:text-rose-400'
               : 'text-muted hover:bg-surface-elevated hover:text-foreground'
           }`}
           aria-label={isMuted ? 'Unmute' : 'Mute'}

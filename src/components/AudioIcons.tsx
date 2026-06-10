@@ -29,6 +29,9 @@ export function PauseIcon({ className = 'size-5' }: IconProps) {
   );
 }
 
+const SPEAKER_BODY_PATH =
+  'M6.75 8.25l4.72-4.72a.75.75 0 0 1 1.28.53v15.88a.75.75 0 0 1-1.28.53l-4.72-4.72H4.51c-.88 0-1.704-.507-1.938-1.354A9.01 9.01 0 0 1 2.25 12c0-.83.112-1.633.322-2.396C2.806 8.756 3.63 8.25 4.51 8.25H6.75z';
+
 export function SpeakerWaveIcon({ className = 'size-5' }: IconProps) {
   return (
     <svg
@@ -54,15 +57,16 @@ export function SpeakerXMarkIcon({ className = 'size-5' }: IconProps) {
       xmlns="http://www.w3.org/2000/svg"
       fill="none"
       viewBox="0 0 24 24"
-      strokeWidth={1.75}
       stroke="currentColor"
       className={className}
     >
       <path
         strokeLinecap="round"
         strokeLinejoin="round"
-        d="M17.25 9.75 19.5 12m0 0 2.25 2.25M19.5 12l2.25-2.25m-10.5-6L4.72 12H1.5v4.5h3.22L9 21.22V2.78L4.72 7.5z"
+        strokeWidth={1.75}
+        d={SPEAKER_BODY_PATH}
       />
+      <path strokeLinecap="round" strokeWidth={2.25} d="M16.5 7.5 7.5 16.5" />
     </svg>
   );
 }
