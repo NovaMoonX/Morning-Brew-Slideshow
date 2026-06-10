@@ -95,15 +95,16 @@ def enrich_issue(event: firestore_fn.Event[firestore_fn.DocumentSnapshot | None]
             LinkRef(url=v['url'], anchor_text=v['anchor_text'], section_id=v['section_id'])
             for v in unique_urls.values()
         ]
-        enriched_objs = enricher.enrich_all_links(unique_objs)
-        enriched_map = {obj.url: obj for obj in enriched_objs}
+        enriched_by_original = {obj.url: obj for obj in unique_objs}
+        enricher.enrich_all_links(unique_objs)
 
         # Update link lists inside slides
         for slide in slides_list:
             for link in slide.get('links', []):
-                enriched = enriched_map.get(link.get('url'))
+                enriched = enriched_by_original.get(link.get('url'))
                 if enriched:
                     link['url'] = enriched.url
+                    link['domain'] = enriched.domain
                     link['og_title'] = enriched.og_title
                     link['og_description'] = enriched.og_description
                     link['og_image'] = enriched.og_image
@@ -179,8 +180,10 @@ def enrich_issue(event: firestore_fn.Event[firestore_fn.DocumentSnapshot | None]
             # Re-map the enriched OpenGraph link tags to the newly compiled slides
             for slide in compiled_slides:
                 for link in slide.links:
-                    enriched = enriched_map.get(link.url)
+                    enriched = enriched_by_original.get(link.url)
                     if enriched:
+                        link.url = enriched.url
+                        link.domain = enriched.domain
                         link.og_title = enriched.og_title
                         link.og_description = enriched.og_description
                         link.og_image = enriched.og_image

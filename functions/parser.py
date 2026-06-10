@@ -34,7 +34,7 @@ class MorningBrewParser:
         date_raw = issue_data.get('date') or date_str or datetime.utcnow().strftime('%Y-%m-%d')
         issue_id = self._normalize_issue_id(date_raw)
         subject_line = issue_data.get('subjectLine') or "Morning Brew Newsletter"
-        title = issue_data.get('title') or subject_line or "Morning Brew"
+        title = self._resolve_title(issue_data, subject_line)
         
         # Primary cover image URL from next data or meta fallback
         primary_image = None
@@ -52,25 +52,12 @@ class MorningBrewParser:
         # Clean parser BeautifulSoup object
         body_soup = BeautifulSoup(html_body, 'html.parser')
         
-        # 2. Parse Intro Blurb
-        intro_text = ""
-        # The intro is usually paragraphs before the first story container or ticker table
-        intro_paras = []
-        first_container = body_soup.find(class_='story-container')
-        
-        # Scan initial paragraphs
-        for tag in body_soup.find_all('p'):
-            if first_container and tag.sourceline and first_container.sourceline and tag.sourceline >= first_container.sourceline:
-                break
-            text = tag.get_text(strip=True)
-            if text and not any(k in text.upper() for k in ['INGEST', 'MORNING BREW', 'SUBSCRIBE']):
-                intro_paras.append(text)
-        intro_text = "\n\n".join(intro_paras[:3])
-        if not intro_text:
-            intro_text = "Welcome to today's edition of the Morning Brew. Let's walk through the latest global highlights."
+        # 2. Parse Intro Blurb (newsletter HTML is table-heavy; <p> tags often sit after story-container)
+        intro_text = self._parse_intro(body_soup, issue_data.get('previewText'))
 
-        # 3. Parse Financial Tickers
+        # 3. Parse Financial Tickers + markets commentary
         tickers = self._parse_tickers(body_soup)
+        markets_commentary = self._parse_markets_commentary(body_soup)
 
         # 4. Parse Sections
         sections = []
@@ -91,6 +78,15 @@ class MorningBrewParser:
                     continue
                 sections.append(section)
 
+        # Top-blurb rows sit outside story-container but belong to the first story
+        if sections and story_divs:
+            orphan_blurb = body_soup.find(class_='top-blurb-container')
+            if orphan_blurb and not story_divs[0].find(class_='top-blurb-container'):
+                blurb_blocks = self._parse_blocks_from_root(
+                    orphan_blurb, sections[0].id, sections[0].title
+                )
+                sections[0].content_blocks = blurb_blocks + sections[0].content_blocks
+
         # 5. Word of Day
         word_of_day = self._extract_word_of_day(body_soup)
 
@@ -103,6 +99,7 @@ class MorningBrewParser:
             intro=intro_text,
             tickers=tickers,
             sections=sections,
+            markets_commentary=markets_commentary,
             word_of_day=word_of_day,
             fetched_at=datetime.utcnow(),
             status='ready'
@@ -133,55 +130,57 @@ class MorningBrewParser:
         if 'AD' in category.upper() or 'SPONSORED' in category.upper():
             return None
 
-        # Image details
+        # Image from header-image-container only; skip photo credit / citation
         img_url = None
-        img_caption = None
-        img_tag = div_soup.find('img')
-        if img_tag and img_tag.get('src'):
-            img_url = img_tag.get('src')
-        
-        caption_tag = div_soup.find(class_=re.compile(r'(source|caption)'))
-        if caption_tag:
-            img_caption = caption_tag.get_text(strip=True)
+        img_container = div_soup.find(class_='header-image-container')
+        if img_container:
+            img_tag = img_container.find('img')
+            if img_tag and img_tag.get('src'):
+                img_url = img_tag.get('src')
+        elif div_soup.find('img'):
+            img_tag = div_soup.find('img')
+            if img_tag and img_tag.get('src'):
+                img_url = img_tag.get('src')
 
         # Content blocks
         blocks = []
         content_container = div_soup.find(class_=re.compile(r'(content-container|body|story-content)'))
-        container_to_scan = content_container if content_container else div_soup
+        scan_roots: List = []
+        top_blurb = div_soup.find(class_='top-blurb-container')
+        if top_blurb:
+            scan_roots.append(top_blurb)
+        if content_container and top_blurb not in content_container.descendants:
+            scan_roots.append(content_container)
+        elif content_container and not top_blurb:
+            scan_roots.append(content_container)
+        if not scan_roots:
+            scan_roots.append(div_soup)
 
-        # Iterate content tags to preserve order
-        for child in container_to_scan.find_all(['p', 'h2', 'h3', 'li', 'ul', 'ol']):
-            if child.name == 'ul' or child.name == 'ol':
-                continue # Scan individual li children instead
-                
-            text = child.get_text(strip=True)
-            if not text:
-                continue
+        seen_nodes = set()
+        for root in scan_roots:
+            for child in root.find_all(['p', 'h2', 'h3', 'li']):
+                if id(child) in seen_nodes:
+                    continue
+                if child.name != 'li' and child.find_parent('li'):
+                    continue
+                seen_nodes.add(id(child))
 
-            # Extract Links
-            links = []
-            for a in child.find_all('a', href=True):
-                url = a.get('href')
-                anchor = a.get_text(strip=True)
-                if url and anchor:
-                    links.append(LinkRef(
-                        url=url,
-                        anchor_text=anchor,
-                        section_id=section_id
-                    ))
+                text = child.get_text(strip=True)
+                if not text:
+                    continue
 
-            # Block Type mapping
-            b_type = 'paragraph'
-            if child.name in ['h2', 'h3']:
-                b_type = 'subheading'
-            elif child.name == 'li':
-                b_type = 'bullet'
+                # Skip title, category, and image-credit lines
+                if text.strip().lower() == title.strip().lower():
+                    continue
+                if child.find_parent(class_=re.compile(r'(title-container|tag-container|header-image-container)')):
+                    continue
+                if child.find(class_='source') and len(text) < 120:
+                    continue
+                child_classes = child.get('class') or []
+                if 'h1' in child_classes:
+                    continue
 
-            blocks.append(ContentBlock(
-                type=b_type,
-                text=text,
-                links=links
-            ))
+                blocks.append(self._content_block_from_element(child, section_id, title))
 
         if not blocks:
             return None
@@ -200,41 +199,160 @@ class MorningBrewParser:
             title=title,
             content_blocks=blocks,
             image_url=img_url,
-            image_caption=img_caption,
+            image_caption=None,
             is_sponsored=False,
             needs_gemini_split=needs_split
         )
 
+    def _content_block_from_element(self, child, section_id: str, section_title: str) -> ContentBlock:
+        text = child.get_text(strip=True)
+        links = []
+        for a in child.find_all('a', href=True):
+            url = a.get('href')
+            anchor = a.get_text(strip=True)
+            if url and anchor:
+                links.append(LinkRef(
+                    url=url,
+                    anchor_text=anchor,
+                    section_id=section_id
+                ))
+
+        b_type = 'paragraph'
+        if child.name in ['h2', 'h3']:
+            b_type = 'subheading'
+        elif child.name == 'li':
+            b_type = 'bullet'
+
+        return ContentBlock(
+            type=b_type,
+            text=text,
+            body_html=self._inline_html(child),
+            links=links
+        )
+
+    def _parse_blocks_from_root(self, root, section_id: str, section_title: str) -> List[ContentBlock]:
+        blocks: List[ContentBlock] = []
+        seen_nodes = set()
+        for child in root.find_all(['p', 'h2', 'h3', 'li']):
+            if id(child) in seen_nodes:
+                continue
+            if child.name != 'li' and child.find_parent('li'):
+                continue
+            seen_nodes.add(id(child))
+
+            text = child.get_text(strip=True)
+            if not text:
+                continue
+            if text.strip().lower() == section_title.strip().lower():
+                continue
+            if child.find(class_='source') and len(text) < 120:
+                continue
+
+            blocks.append(self._content_block_from_element(child, section_id, section_title))
+        return blocks
+
+    def _inline_html(self, element) -> str:
+        """Preserve inline links and emphasis from newsletter HTML."""
+        parts: List[str] = []
+        for child in element.children:
+            name = getattr(child, 'name', None)
+            if name == 'a' and child.get('href'):
+                href = child.get('href')
+                label = child.get_text(strip=True)
+                if label:
+                    parts.append(
+                        f'<a href="{href}" target="_blank" rel="noopener noreferrer">{label}</a>'
+                    )
+            elif name in ('strong', 'b', 'em', 'i', 'span'):
+                inner = self._inline_html(child)
+                if inner:
+                    parts.append(f'<{name}>{inner}</{name}>')
+            elif isinstance(child, str):
+                parts.append(str(child))
+            elif name:
+                parts.append(child.get_text())
+        html = ''.join(parts)
+        # Collapse horizontal whitespace only — preserve leading/trailing spaces in text nodes.
+        html = re.sub(r'[ \t]+', ' ', html)
+        # Newsletter HTML often omits a space after closing inline tags.
+        html = re.sub(r'(</(?:a|strong|b|em|i|span)>)(?=\w)', r'\1 ', html)
+        html = re.sub(r'(\w)(<(?:a|strong|b|em|i|span)\b)', r'\1 \2', html)
+        html = re.sub(r'(</(?:a|strong|b|em|i|span)>)(<span>)([A-Za-z])', r'\1\2 \3', html)
+        html = re.sub(r'(</span><span>)([A-Za-z])', r'\1 \2', html)
+        html = re.sub(r'(<(?:strong|b|em|i|span)[^>]*>[^<]*:)(</(?:strong|b|em|i|span)>)', r'\1 \2', html)
+        return html
+
     def _parse_tickers(self, soup) -> List[MarketTicker]:
         tickers = []
-        table = soup.find('table', class_=re.compile(r'(markets|ticker)'))
-        if not table:
-            return tickers
+        seen_symbols = set()
 
-        rows = table.find_all('tr')
-        for row in rows:
-            cells = row.find_all(['td', 'th'])
-            if len(cells) >= 3:
-                symbol = cells[0].get_text(strip=True)
-                value = cells[1].get_text(strip=True)
-                change = cells[2].get_text(strip=True)
-                
-                # Detect direction
-                direction = 'up'
-                img = row.find('img')
-                if img and img.get('src') and 'down' in img.get('src').lower():
-                    direction = 'down'
-                elif '-' in change:
-                    direction = 'down'
+        for row in soup.find_all('tr'):
+            ticker_cell = row.find(class_='markets-ticker-cell')
+            value_cell = row.find(class_='markets-value-cell')
+            bubble_cell = row.find(class_='markets-bubble-cell')
+            if not ticker_cell or not value_cell:
+                continue
 
-                if symbol and value:
-                    tickers.append(MarketTicker(
-                        symbol=symbol,
-                        value=value,
-                        change=change,
-                        direction=direction
-                    ))
+            symbol = ticker_cell.get_text(strip=True)
+            value = value_cell.get_text(strip=True)
+            change = bubble_cell.get_text(strip=True) if bubble_cell else ''
+
+            if not symbol or symbol in seen_symbols:
+                continue
+            seen_symbols.add(symbol)
+
+            direction = 'down' if change.strip().startswith('-') else 'up'
+            arrow = row.find('img', class_='markets-arrow')
+            if arrow and arrow.get('src') and 'e4a85d043' in arrow.get('src'):
+                direction = 'down'
+
+            tickers.append(MarketTicker(
+                symbol=symbol,
+                value=value,
+                change=change,
+                direction=direction
+            ))
+
         return tickers
+
+    def _parse_markets_commentary(self, soup) -> List[ContentBlock]:
+        blocks: List[ContentBlock] = []
+        markets_header = None
+        for tag in soup.find_all('p', class_='h3'):
+            if tag.get_text(strip=True).upper() == 'MARKETS':
+                markets_header = tag
+                break
+        if not markets_header:
+            return blocks
+
+        card = None
+        for td in markets_header.parents:
+            if td.name == 'td':
+                classes = td.get('class') or []
+                if 'table-head' in classes:
+                    card = td
+                    break
+        if not card:
+            return blocks
+
+        for li in card.find_all('li'):
+            text = li.get_text(strip=True)
+            if not text or len(text) < 20:
+                continue
+            links = []
+            for a in li.find_all('a', href=True):
+                url = a.get('href')
+                anchor = a.get_text(strip=True)
+                if url and anchor:
+                    links.append(LinkRef(url=url, anchor_text=anchor, section_id='markets'))
+            blocks.append(ContentBlock(
+                type='bullet',
+                text=text,
+                body_html=self._inline_html(li),
+                links=links
+            ))
+
+        return blocks
 
     def _extract_word_of_day(self, soup) -> Optional[str]:
         # Usually inside some specific headers or bold paragraphs
@@ -245,6 +363,54 @@ class MorningBrewParser:
                 if match:
                     return match.group(1)
         return None
+
+    def _resolve_title(self, issue_data: Dict[str, Any], subject_line: str) -> str:
+        raw_title = (issue_data.get('title') or '').strip()
+        if raw_title and raw_title.lower() != 'untitled':
+            return raw_title
+        if subject_line and subject_line != "Morning Brew Newsletter":
+            return subject_line
+        slug = (issue_data.get('slug') or '').strip()
+        if slug:
+            return slug.replace('-', ' ').title()
+        return "Morning Brew"
+
+    def _parse_intro(self, body_soup: BeautifulSoup, preview_text: Optional[str]) -> str:
+        intro_paras: List[str] = []
+        first_container = body_soup.find(class_='story-container')
+
+        if first_container:
+            html_str = str(body_soup)
+            marker_idx = html_str.find('class="story-container"')
+            if marker_idx < 0:
+                marker_idx = html_str.find("class='story-container'")
+            if marker_idx > 0:
+                intro_soup = BeautifulSoup(html_str[:marker_idx], 'html.parser')
+                for tag in intro_soup.find_all(['p', 'li']):
+                    if tag.find_parent(class_=re.compile(r'top-blurb')):
+                        continue
+                    text = tag.get_text(strip=True)
+                    if len(text) < 20:
+                        continue
+                    upper = text.upper()
+                    if any(k in upper for k in ['SUBSCRIBE', 'VIEW ONLINE', 'ADVERTISEMENT', 'SIGN UP']):
+                        continue
+                    intro_paras.append(text)
+
+        if not intro_paras:
+            for tag in body_soup.find_all('p'):
+                if first_container and tag.sourceline and first_container.sourceline and tag.sourceline >= first_container.sourceline:
+                    break
+                text = tag.get_text(strip=True)
+                if text and len(text) >= 20 and not any(k in text.upper() for k in ['INGEST', 'MORNING BREW', 'SUBSCRIBE']):
+                    intro_paras.append(text)
+
+        intro_text = "\n\n".join(intro_paras[:4])
+        if intro_text:
+            return intro_text
+        if preview_text:
+            return preview_text.strip()
+        return "Welcome to today's edition of the Morning Brew. Let's walk through the latest global highlights."
 
     def _normalize_issue_id(self, date_value: str) -> str:
         """Return YYYY-MM-DD for Firestore document ids."""

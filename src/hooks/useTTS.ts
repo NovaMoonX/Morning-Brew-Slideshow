@@ -1,14 +1,23 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { useAppDispatch, useAppSelector } from '@store/index';
-import { togglePlay, nextSlide } from '@store/slideshowSlice';
+import { nextSlide } from '@store/slideshowSlice';
+import { speakableText } from '@components/SlideBody';
 import type { Slide } from '@lib/models';
 
 interface UseTTSProps {
   slide: Slide | null;
+  totalSlides: number;
   isAudioReady: boolean;
 }
 
-export function useTTS({ slide }: UseTTSProps) {
+import {
+  estimateDurationMs,
+  LINK_CARD_DURATION_MS,
+  MIN_READ_DURATION_MS,
+  SECTION_HERO_DURATION_MS,
+} from '@lib/slideshow/timing';
+
+export function useTTS({ slide, totalSlides }: UseTTSProps) {
   const dispatch = useAppDispatch();
   const { isPlaying, isMuted, preferKokoroAudio } = useAppSelector(
     (state) => state.slideshow
@@ -20,9 +29,17 @@ export function useTTS({ slide }: UseTTSProps) {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
   const slideIdRef = useRef<string | null>(null);
+  const timerRef = useRef<number | null>(null);
 
-  // Helper to completely stop active speech/audio
+  const clearTimer = useCallback(() => {
+    if (timerRef.current !== null) {
+      window.clearTimeout(timerRef.current);
+      timerRef.current = null;
+    }
+  }, []);
+
   const stopAllPlayback = useCallback(() => {
+    clearTimer();
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current = null;
@@ -32,23 +49,58 @@ export function useTTS({ slide }: UseTTSProps) {
     }
     utteranceRef.current = null;
     setActiveMode('idle');
-  }, []);
+  }, [clearTimer]);
 
-  // Handle slide completion and advance
-  const handlePlaybackFinished = useCallback(() => {
-    stopAllPlayback();
-    dispatch(togglePlay(false));
-    // Brief delay before advancing to next slide
-    setTimeout(() => {
-      // Advance to next slide. We use a high boundary of 999 since slice checks bounds
-      dispatch(nextSlide(999));
-    }, 800);
-  }, [dispatch, stopAllPlayback]);
+  const advanceSlide = useCallback(() => {
+    dispatch(nextSlide(totalSlides));
+  }, [dispatch, totalSlides]);
 
-  // Main playback logic
+  const scheduleAdvance = useCallback(
+    (delayMs: number) => {
+      clearTimer();
+      timerRef.current = window.setTimeout(() => {
+        timerRef.current = null;
+        stopAllPlayback();
+        advanceSlide();
+      }, delayMs);
+    },
+    [advanceSlide, clearTimer, stopAllPlayback]
+  );
+
+  const playBrowserSpeech = useCallback(
+    (text: string) => {
+      if (typeof window === 'undefined' || !window.speechSynthesis) {
+        setError('Browser text-to-speech is unsupported.');
+        scheduleAdvance(estimateDurationMs(text));
+        return;
+      }
+
+      const utterance = new SpeechSynthesisUtterance(text);
+      utterance.lang = 'en-US';
+      utterance.rate = 1.05;
+      utterance.volume = isMuted ? 0 : 1;
+
+      utterance.onstart = () => {
+        setActiveMode('browser');
+      };
+      utterance.onend = () => {
+        stopAllPlayback();
+        advanceSlide();
+      };
+      utterance.onerror = () => {
+        setActiveMode('idle');
+        scheduleAdvance(estimateDurationMs(text));
+      };
+
+      utteranceRef.current = utterance;
+      window.speechSynthesis.speak(utterance);
+    },
+    [isMuted, scheduleAdvance, stopAllPlayback, advanceSlide]
+  );
+
   const playSlideAudio = useCallback(() => {
     const activeSlide = slide;
-    if (!activeSlide || activeSlide.type === 'link_cards') {
+    if (!activeSlide) {
       stopAllPlayback();
       return;
     }
@@ -56,119 +108,109 @@ export function useTTS({ slide }: UseTTSProps) {
     stopAllPlayback();
     setError(null);
 
-    // Try Kokoro first if preferred and available
+    const text = speakableText(activeSlide);
+
+    if (activeSlide.type === 'link_cards') {
+      scheduleAdvance(LINK_CARD_DURATION_MS);
+      return;
+    }
+
+    if (activeSlide.type === 'section_hero') {
+      scheduleAdvance(SECTION_HERO_DURATION_MS);
+      return;
+    }
+
+    if (!text) {
+      scheduleAdvance(MIN_READ_DURATION_MS);
+      return;
+    }
+
     if (preferKokoroAudio && activeSlide.audio_url) {
       const audio = new Audio(activeSlide.audio_url);
       audio.muted = isMuted;
       audioRef.current = audio;
       setActiveMode('kokoro');
 
-      audio.onplay = () => {
-        dispatch(togglePlay(true));
-      };
       audio.onended = () => {
-        handlePlaybackFinished();
+        stopAllPlayback();
+        advanceSlide();
       };
       audio.onerror = () => {
-        // Fallback to browser if mp3 fails
         setActiveMode('idle');
-        playBrowserSpeech();
+        playBrowserSpeech(text);
       };
 
       audio.play().catch(() => {
         setError('Auto-play blocked or audio load failed.');
-        dispatch(togglePlay(false));
+        playBrowserSpeech(text);
       });
       return;
     }
 
-    // Fallback to Browser Speech Synthesis
-    playBrowserSpeech();
+    playBrowserSpeech(text);
+  }, [
+    slide,
+    preferKokoroAudio,
+    isMuted,
+    stopAllPlayback,
+    advanceSlide,
+    playBrowserSpeech,
+    scheduleAdvance,
+  ]);
 
-    function playBrowserSpeech() {
-      if (!activeSlide || !activeSlide.body) {
-        return;
-      }
-
-      if (typeof window === 'undefined' || !window.speechSynthesis) {
-        setError('Browser text-to-speech is unsupported.');
-        return;
-      }
-
-      const utterance = new SpeechSynthesisUtterance(activeSlide.body);
-      utterance.lang = 'en-US';
-      utterance.rate = 1.05;
-
-      utterance.onstart = () => {
-        dispatch(togglePlay(true));
-        setActiveMode('browser');
-      };
-      utterance.onend = () => {
-        handlePlaybackFinished();
-      };
-      utterance.onerror = () => {
-        dispatch(togglePlay(false));
-        setActiveMode('idle');
-      };
-
-      utteranceRef.current = utterance;
-      window.speechSynthesis.speak(utterance);
-    }
-  }, [slide, preferKokoroAudio, isMuted, handlePlaybackFinished, stopAllPlayback, dispatch]);
-
-  // Handle play/pause commands from slice
-  useEffect(() => {
-    if (!slide || slide.type === 'link_cards') {
-      return;
-    }
-
-    if (isPlaying) {
-      if (activeMode === 'idle') {
-        playSlideAudio();
-      } else if (activeMode === 'kokoro' && audioRef.current) {
-        audioRef.current.play().catch(() => {});
-      } else if (activeMode === 'browser' && typeof window !== 'undefined' && window.speechSynthesis.paused) {
-        window.speechSynthesis.resume();
-      }
-    } else {
-      if (activeMode === 'kokoro' && audioRef.current) {
-        audioRef.current.pause();
-      } else if (activeMode === 'browser' && typeof window !== 'undefined' && window.speechSynthesis.speaking) {
-        window.speechSynthesis.pause();
-      }
-    }
-  }, [isPlaying, slide, activeMode, playSlideAudio]);
-
-  // Sync mute state to audio element
-  useEffect(() => {
-    if (audioRef.current) {
-      audioRef.current.muted = isMuted;
-    }
-  }, [isMuted]);
-
-  // Handle active slide changes
   useEffect(() => {
     if (!slide) {
       stopAllPlayback();
       return;
     }
 
-    // Stop if switching to a new slide
     if (slideIdRef.current !== slide.id) {
       slideIdRef.current = slide.id;
       stopAllPlayback();
-      
-      // If we were playing, start playing the new slide automatically
       if (isPlaying) {
         playSlideAudio();
       }
     }
   }, [slide, isPlaying, playSlideAudio, stopAllPlayback]);
 
-  // Handle on-the-fly Kokoro audio url loads
   useEffect(() => {
-    // If the slide's audio url gets populated in real-time, and we are currently
-    // playing fallback browser speech, seamlessly swap to the higher quality audio file
+    if (!slide || slide.type === 'link_cards') {
+      return;
+    }
+
+    if (isPlaying && activeMode === 'idle') {
+      playSlideAudio();
+    } else if (!isPlaying) {
+      clearTimer();
+      if (activeMode === 'kokoro' && audioRef.current) {
+        audioRef.current.pause();
+      } else if (
+        activeMode === 'browser' &&
+        typeof window !== 'undefined' &&
+        window.speechSynthesis.speaking
+      ) {
+        window.speechSynthesis.pause();
+      }
+    } else if (isPlaying) {
+      if (activeMode === 'kokoro' && audioRef.current) {
+        audioRef.current.play().catch(() => {});
+      } else if (
+        activeMode === 'browser' &&
+        typeof window !== 'undefined' &&
+        window.speechSynthesis.paused
+      ) {
+        window.speechSynthesis.resume();
+      }
+    }
+  }, [isPlaying, slide, activeMode, playSlideAudio]);
+
+  useEffect(() => {
+    if (audioRef.current) {
+      audioRef.current.muted = isMuted;
+    }
+  }, [isMuted]);
+
+  useEffect(() => {
     if (
       isPlaying &&
       activeMode === 'browser' &&
@@ -180,7 +222,6 @@ export function useTTS({ slide }: UseTTSProps) {
     }
   }, [slide?.audio_url, isPlaying, activeMode, preferKokoroAudio, playSlideAudio, stopAllPlayback]);
 
-  // Clean up on unmount
   useEffect(() => {
     return () => {
       stopAllPlayback();

@@ -9,8 +9,19 @@ _session.trust_env = False
 DEFAULT_HEADERS = {'User-Agent': 'Mozilla/5.0'}
 
 
-def get(url: str, *, headers: dict | None = None, timeout: int = 15) -> requests.Response:
-    return _session.get(url, headers=headers or DEFAULT_HEADERS, timeout=timeout)
+def get(
+    url: str,
+    *,
+    headers: dict | None = None,
+    timeout: int = 15,
+    stream: bool = False,
+) -> requests.Response:
+    return _session.get(
+        url,
+        headers=headers or DEFAULT_HEADERS,
+        timeout=timeout,
+        stream=stream,
+    )
 
 
 def head(

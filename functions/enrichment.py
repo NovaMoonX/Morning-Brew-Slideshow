@@ -14,21 +14,34 @@ class LinkEnricher:
         }
 
     def resolve_redirect(self, url: str) -> str:
-        """Resolves tracking redirects by following headers to final destination."""
-        if 'morningbrew.com/c/' not in url and 'links.morningbrew.com' not in url:
+        """Resolves tracking redirects by following redirects to final destination."""
+        if 'links.morningbrew.com' not in url and 'morningbrew.com/c/' not in url:
             return url
         try:
-            # Send HEAD request to quickly resolve redirects without downloading body
-            res = http_client.head(url, headers=self.headers, timeout=self.timeout)
+            res = http_client.get(
+                url,
+                headers=self.headers,
+                timeout=self.timeout,
+                stream=True,
+            )
+            res.close()
             return res.url
         except Exception as e:
             print(f"Error resolving redirect for {url}: {e}")
             return url
 
+    @staticmethod
+    def _hostname(url: str) -> Optional[str]:
+        hostname = urlparse(url).hostname
+        if not hostname:
+            return None
+        return hostname.removeprefix('www.')
+
     def enrich_link(self, link: LinkRef) -> LinkRef:
         """Enriches a single LinkRef with OpenGraph tags."""
         resolved_url = self.resolve_redirect(link.url)
         link.url = resolved_url
+        link.domain = self._hostname(resolved_url)
 
         try:
             res = http_client.get(resolved_url, headers=self.headers, timeout=self.timeout)
@@ -82,19 +95,11 @@ class LinkEnricher:
                 unique_links[link.url] = link
 
         links_to_enrich = list(unique_links.values())
-        enriched_results = []
+        enriched_lookup = {}
 
         with ThreadPoolExecutor(max_workers=self.max_workers) as executor:
             results = executor.map(self.enrich_link, links_to_enrich)
-            for r in results:
-                enriched_results.append(r)
+            for original_url, enriched in zip(unique_links.keys(), results):
+                enriched_lookup[original_url] = enriched
 
-        # Map back to original list mapping duplicates
-        mapped_results = []
-        result_map = {r.url: r for r in enriched_results}
-        for link in links:
-            # Match resolved or original
-            mapped = result_map.get(link.url) or link
-            mapped_results.append(mapped)
-
-        return mapped_results
+        return [enriched_lookup.get(link.url, link) for link in links]

@@ -100,6 +100,18 @@ curl http://127.0.0.1:8787/
 
 Expect `200` with `Successfully ingested issue YYYY-MM-DD…` or `already exists. Skipping.`
 
+#### Force re-ingest (overwrite existing issue)
+
+If today's issue is already in Firestore but you changed the parser, slide builder, or UI and need fresh slides/metadata, bypass the skip check:
+
+```bash
+curl "http://127.0.0.1:8787/?force=true"
+```
+
+Requires `npm run dev:ingest` to be running. Expect `200` with `Successfully ingested issue YYYY-MM-DD. Total slides: …`. Then hard-refresh the client.
+
+You can also use the dev UI button when the issue does not exist yet; use force re-ingest when ingest returns `already exists. Skipping.`
+
 #### Troubleshooting
 
 | Symptom | Fix |

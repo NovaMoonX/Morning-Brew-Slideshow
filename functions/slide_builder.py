@@ -1,15 +1,22 @@
 from typing import List
 from models import BrewIssue, Slide, ContentSection, LinkRef
 
+
 class SlideBuilder:
-    def __init__(self):
-        pass
+    def _is_body_content_link(self, link: LinkRef, section: ContentSection) -> bool:
+        anchor = (link.anchor_text or '').strip().lower()
+        title = section.title.strip().lower()
+        category = section.category.strip().lower()
+        if not anchor or anchor == title or anchor == category:
+            return False
+        if title and len(anchor) > 30 and (title in anchor or anchor in title):
+            return False
+        return True
 
     def build_slides(self, issue: BrewIssue) -> List[Slide]:
         slides = []
         order = 0
 
-        # 1. Cover Slide
         slides.append(Slide(
             id=f"cover_{order:03d}",
             type="cover",
@@ -24,7 +31,6 @@ class SlideBuilder:
         ))
         order += 1
 
-        # 2. Intro Slide
         slides.append(Slide(
             id=f"intro_{order:03d}",
             type="intro",
@@ -38,26 +44,40 @@ class SlideBuilder:
         ))
         order += 1
 
-        # 3. Markets Slide (If tickers exist)
-        if issue.tickers:
-            market_body = "\n".join([
+        if issue.tickers or issue.markets_commentary:
+            market_lines = [
                 f"• {t.symbol}: {t.value} ({t.change} {'▲' if t.direction == 'up' else '▼'})"
                 for t in issue.tickers
-            ])
+            ]
+            market_html_parts = [
+                '<ul class="markets-list">'
+                + ''.join(
+                    f'<li><strong>{t.symbol}</strong> {t.value} '
+                    f'<span>({t.change})</span></li>'
+                    for t in issue.tickers
+                )
+                + '</ul>'
+            ]
+            for block in issue.markets_commentary:
+                market_lines.append(f"• {block.text}")
+                if block.body_html:
+                    market_html_parts.append(f'<p>{block.body_html}</p>')
+
             slides.append(Slide(
                 id=f"markets_{order:03d}",
                 type="markets",
                 section_id="markets",
-                section_label="MARKETS INDICATORS",
-                title="Financial Markets Overview",
-                body=market_body,
-                links=[],
+                section_label="MARKETS",
+                title="Financial Markets Today",
+                body="\n".join(market_lines),
+                body_html=''.join(market_html_parts),
+                image_url=None,
+                links=[link for block in issue.markets_commentary for link in block.links],
                 order=order
             ))
             order += 1
 
-        # 4. Process Each Section
-        for sec_idx, section in enumerate(issue.sections):
+        for section in issue.sections:
             sec_slides, next_order = self.build_section_slides(section, order)
             slides.extend(sec_slides)
             order = next_order
@@ -69,29 +89,29 @@ class SlideBuilder:
         order = start_order
         sec_id = section.id
 
-        # 1. Section Hero Slide
         slides.append(Slide(
             id=f"{sec_id}_hero_{order:03d}",
             type="section_hero",
             section_id=sec_id,
             section_label=section.category,
             title=section.title,
-            body=f"{section.category}: {section.title}",
+            body=section.title,
             image_url=section.image_url,
-            image_caption=section.image_caption,
             links=[],
             order=order
         ))
         order += 1
 
-        # Collect links across all slides in this section to pack in the final link_cards slide
-        all_links = []
+        all_links: List[LinkRef] = []
 
-        # 2. Section Blocks
         for b_idx, block in enumerate(section.content_blocks):
-            # Accumulate links
-            if block.links:
-                all_links.extend(block.links)
+            if block.text.strip().lower() == section.title.strip().lower():
+                continue
+
+            body_links = [link for link in block.links if self._is_body_content_link(link, section)]
+
+            if body_links:
+                all_links.extend(body_links)
 
             slide_type = "body"
             body_text = block.text
@@ -101,7 +121,6 @@ class SlideBuilder:
                 slide_type = "bullet"
             elif block.type == "subheading":
                 slide_type = "body"
-                body_text = f"Sub-heading: {block.text}"
                 title_text = block.text
 
             slides.append(Slide(
@@ -111,15 +130,13 @@ class SlideBuilder:
                 section_label=section.category,
                 title=title_text,
                 body=body_text,
-                image_url=section.image_url if b_idx == 0 else None, # Only attach image to the first content slide if section hero doesn't suffice
-                links=block.links,
+                body_html=block.body_html,
+                links=body_links,
                 order=order
             ))
             order += 1
 
-        # 3. Interstitial Link Cards Slide (If links exist in this section)
         if all_links:
-            # Deduplicate links by URL
             seen_urls = set()
             deduped_links = []
             for link in all_links:

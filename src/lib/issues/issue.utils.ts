@@ -53,6 +53,7 @@ function asLinks(value: unknown): LinkRef[] {
       og_description: asNullableText(item.og_description),
       og_image: asNullableText(item.og_image),
       gemini_summary: asNullableText(item.gemini_summary),
+      domain: asNullableText(item.domain),
     };
     const ensured = normalized.url
       ? normalized
@@ -83,6 +84,7 @@ function asSlides(value: unknown): Slide[] {
       section_label: asText(item.section_label),
       title: asText(item.title, 'Untitled slide'),
       body: asText(item.body),
+      body_html: asNullableText(item.body_html),
       image_url: asNullableText(item.image_url),
       image_caption: asNullableText(item.image_caption),
       links: asLinks(item.links),

@@ -8,6 +8,7 @@ export interface LinkRef {
   og_description: string | null;
   og_image: string | null;
   gemini_summary: string | null;
+  domain?: string | null;
 }
 
 export type SlideType =
@@ -26,6 +27,7 @@ export interface Slide {
   section_label: string;
   title: string;
   body: string;
+  body_html?: string | null;
   image_url: string | null;
   image_caption: string | null;
   links: LinkRef[];

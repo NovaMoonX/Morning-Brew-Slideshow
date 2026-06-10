@@ -5,15 +5,15 @@ import type { Slide } from '@lib/models';
 
 interface TTSEngineProps {
   slide: Slide | null;
+  totalSlides: number;
   isAudioReady: boolean;
 }
 
-export function TTSEngine({ slide, isAudioReady }: TTSEngineProps) {
+export function TTSEngine({ slide, totalSlides, isAudioReady }: TTSEngineProps) {
   const dispatch = useAppDispatch();
   const { isPlaying, isMuted, preferKokoroAudio } = useAppSelector((state) => state.slideshow);
   
-  // Custom hook manages media elements and plays back audio
-  const { activeMode } = useTTS({ slide, isAudioReady });
+  const { activeMode } = useTTS({ slide, totalSlides, isAudioReady });
 
   if (!slide || slide.type === 'link_cards') {
     return null;

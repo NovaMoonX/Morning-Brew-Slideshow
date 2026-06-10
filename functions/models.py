@@ -11,6 +11,7 @@ class LinkRef:
     og_description: Optional[str] = None
     og_image: Optional[str] = None
     gemini_summary: Optional[str] = None
+    domain: Optional[str] = None
 
     def to_dict(self):
         return asdict(self)
@@ -23,6 +24,7 @@ class Slide:
     section_label: str
     title: str
     body: str
+    body_html: Optional[str] = None
     image_url: Optional[str] = None
     image_caption: Optional[str] = None
     links: List[LinkRef] = None
@@ -52,6 +54,7 @@ class MarketTicker:
 class ContentBlock:
     type: str  # 'paragraph' | 'subheading' | 'bullet'
     text: str
+    body_html: Optional[str] = None
     links: List[LinkRef] = None
 
     def __post_init__(self):
@@ -89,6 +92,7 @@ class BrewIssue:
     intro: str
     tickers: List[MarketTicker]
     sections: List[ContentSection]
+    markets_commentary: List[ContentBlock] = None
     word_of_day: Optional[str] = None
     fetched_at: datetime = None
     status: str = 'ready'  # 'ready' | 'enriched' | 'audio_ready' | 'failed'
@@ -99,6 +103,8 @@ class BrewIssue:
             self.fetched_at = datetime.utcnow()
         if self.slides is None:
             self.slides = []
+        if self.markets_commentary is None:
+            self.markets_commentary = []
 
     def to_dict(self):
         return {
@@ -109,6 +115,7 @@ class BrewIssue:
             'primary_image_url': self.primary_image_url,
             'intro': self.intro,
             'tickers': [t.to_dict() for t in self.tickers],
+            'markets_commentary': [b.to_dict() for b in self.markets_commentary],
             'sections': [s.to_dict() for s in self.sections],
             'word_of_day': self.word_of_day,
             'fetched_at': self.fetched_at.isoformat() if isinstance(self.fetched_at, datetime) else self.fetched_at,

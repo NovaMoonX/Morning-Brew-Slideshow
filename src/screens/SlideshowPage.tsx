@@ -5,7 +5,6 @@ import { useIssue } from '@hooks/useIssue';
 import { resetPlayer } from '@store/slideshowSlice';
 import { SlideshowPlayer } from '@components/SlideshowPlayer';
 import { TTSEngine } from '@components/TTSEngine';
-import { LinkExplorer } from '@components/LinkExplorer';
 
 export function SlideshowPage() {
   const { date } = useParams<{ date: string }>();
@@ -97,18 +96,15 @@ export function SlideshowPage() {
       {/* Main Full-Bleed slide renderer */}
       <SlideshowPlayer
         slide={activeSlide}
+        slides={slides}
         currentIndex={activeIndex}
         totalSlides={totalSlides}
       />
 
-      {/* Interactive horizontal slides list inside link cards */}
-      {activeSlide.type === 'link_cards' && (
-        <LinkExplorer links={activeSlide.links} />
-      )}
-
       {/* Discreet bottom status EQ & Controls */}
       <TTSEngine
         slide={activeSlide}
+        totalSlides={totalSlides}
         isAudioReady={isAudioReady}
       />
     </div>

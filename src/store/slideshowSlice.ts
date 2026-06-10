@@ -43,7 +43,7 @@ const slideshowSlice = createSlice({
     },
     resetPlayer: (state) => {
       state.currentSlideIndex = 0;
-      state.isPlaying = false;
+      state.isPlaying = true;
     },
   },
 });
